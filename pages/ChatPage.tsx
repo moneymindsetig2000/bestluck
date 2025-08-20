@@ -100,8 +100,9 @@ const ChatPage: React.FC = () => {
       setUser(currentUser);
       setIsSignedIn(true);
     } catch (error) {
-      // Any error (401 Unauthorized, network error, etc.) means there's no valid session.
-      console.error("Puter auth check failed, treating as logged out:", error);
+      // An error here, typically a 401, is the expected behavior when a user is not signed in.
+      // We log this as info rather than an error to avoid confusion in the console.
+      console.info("Auth check: User is not signed in.", error);
       setIsSignedIn(false);
       setUser(null);
     }
