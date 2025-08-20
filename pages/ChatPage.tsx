@@ -56,8 +56,20 @@ const renderWithMarkdown = (text: string | undefined) => {
   });
 };
 
-const LoginOverlay: React.FC<{ onLogin: () => void }> = ({ onLogin }) => (
-  <div className="absolute inset-0 bg-black/70 z-50 flex items-center justify-center backdrop-blur-sm p-4">
+const LoadingScreen: React.FC = () => (
+    <div className="flex h-screen w-screen items-center justify-center bg-[#212121] text-white">
+        <div className="flex flex-col items-center gap-4">
+            <svg className="animate-spin h-8 w-8 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Connecting...</span>
+        </div>
+    </div>
+);
+
+const LoginScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => (
+  <div className="flex h-screen w-screen items-center justify-center bg-[#212121] p-4">
     <div className="bg-[#171717] p-8 rounded-2xl border border-zinc-800 text-center max-w-sm shadow-lg animate-fade-in">
         <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#272727]">
             <svg width="32" height="32" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -95,13 +107,10 @@ const ChatPage: React.FC = () => {
 
   const checkAuthStatus = async () => {
     try {
-      // The most reliable way to check for an active session is to fetch user data.
       const currentUser = await window.puter.auth.getUser();
       setUser(currentUser);
       setIsSignedIn(true);
     } catch (error) {
-      // An error here, typically a 401, is the expected behavior when a user is not signed in.
-      // We log this as info rather than an error to avoid confusion in the console.
       console.info("Auth check: User is not signed in.", error);
       setIsSignedIn(false);
       setUser(null);
@@ -131,7 +140,7 @@ const ChatPage: React.FC = () => {
     if (window.puter && window.puter.auth) {
       try {
         await window.puter.auth.signIn();
-        await checkAuthStatus(); // Re-check status after sign-in attempt
+        await checkAuthStatus();
       } catch (error) {
         console.error("Sign-in process failed or was cancelled by user.", error);
       }
@@ -252,25 +261,16 @@ const ChatPage: React.FC = () => {
 
   const isAnyModelLoading = Object.values(loadingStates).some(isLoading => isLoading);
 
+  if (isSignedIn === null) {
+    return <LoadingScreen />;
+  }
+
+  if (isSignedIn === false) {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
+
   return (
-    <div className="flex h-screen bg-[#212121] text-white font-sans overflow-hidden relative">
-      {/* Loading Overlay */}
-      {isSignedIn === null && (
-        <div className="absolute inset-0 bg-[#212121] z-50 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <svg className="animate-spin h-8 w-8 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span>Connecting...</span>
-          </div>
-        </div>
-      )}
-
-      {/* Login Overlay */}
-      {isSignedIn === false && <LoginOverlay onLogin={handleLogin} />}
-
-      {/* Main App UI */}
+    <div className="flex h-screen bg-[#212121] text-white font-sans overflow-hidden">
       <Sidebar 
         isCollapsed={isSidebarCollapsed} 
         onToggleCollapse={() => setIsSidebarCollapsed(p => !p)} 
@@ -278,7 +278,7 @@ const ChatPage: React.FC = () => {
         onLogout={handleLogout}
       />
       <div 
-        className={`flex flex-1 flex-col overflow-hidden transition-opacity duration-300 ${isSignedIn ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className="flex flex-1 flex-col overflow-hidden"
       >
         <main className="flex flex-1 overflow-x-auto">
           {modelConfigs.map((model) => {
