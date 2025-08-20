@@ -276,95 +276,99 @@ const ChatPage: React.FC = () => {
     );
   }
 
+  if (isSignedIn === false) {
+    return (
+      <div className="flex h-screen bg-[#212121] text-white font-sans overflow-hidden relative">
+        <LoginOverlay onLogin={handleLogin} />
+      </div>
+    );
+  }
+  
   return (
-    <div className="flex h-screen bg-[#212121] text-white font-sans overflow-hidden relative">
-      {isSignedIn === false && <LoginOverlay onLogin={handleLogin} />}
-      
-      <div className={`flex flex-1 overflow-hidden transition-all duration-300 ${isSignedIn === false ? 'blur-sm pointer-events-none' : ''}`}>
-        <Sidebar 
-          isCollapsed={isSidebarCollapsed} 
-          onToggleCollapse={() => setIsSidebarCollapsed(p => !p)} 
-          user={user}
-          onLogout={handleLogout}
-        />
-        <div className="flex flex-1 flex-col overflow-hidden">
-          <main className="flex flex-1 overflow-x-auto">
-            {modelConfigs.map((model) => {
-              const isExpanded = expandedModel === model.name;
-              const isCollapsed = expandedModel !== null && !isExpanded;
-              
-              let widthClass = 'basis-[38%] flex-shrink-0';
-              if (isExpanded) {
-                widthClass = 'flex-grow basis-1/2'; 
-              } else if (isCollapsed) {
-                widthClass = 'flex-shrink-0 basis-16';
-              }
+    <div className="flex h-screen bg-[#212121] text-white font-sans overflow-hidden">
+      <Sidebar 
+        isCollapsed={isSidebarCollapsed} 
+        onToggleCollapse={() => setIsSidebarCollapsed(p => !p)} 
+        user={user}
+        onLogout={handleLogout}
+      />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <main className="flex flex-1 overflow-x-auto">
+          {modelConfigs.map((model) => {
+            const isExpanded = expandedModel === model.name;
+            const isCollapsed = expandedModel !== null && !isExpanded;
+            
+            let widthClass = 'basis-[38%] flex-shrink-0';
+            if (isExpanded) {
+              widthClass = 'flex-grow basis-1/2'; 
+            } else if (isCollapsed) {
+              widthClass = 'flex-shrink-0 basis-16';
+            }
 
-              return (
-                <div 
-                  key={model.name} 
-                  className={`flex flex-col h-full border-r border-zinc-800 last:border-r-0 transition-all duration-500 ease-in-out ${widthClass}`}
-                >
-                  <ChatHeader 
-                    model={model}
-                    isExpanded={isExpanded}
-                    isCollapsed={isCollapsed}
-                    onToggleExpand={() => handleToggleExpand(model.name)}
-                    onToggleEnabled={() => handleToggleModelEnabled(model.name)}
-                  />
-                  <div className={`flex-1 overflow-y-auto ${isCollapsed ? 'hidden' : 'block'}`}>
-                    {responses[model.name] ? (
-                      <div className="p-4 space-y-6 text-base">
-                        <div className="flex items-start gap-4">
-                          <UserIcon />
-                          <div className="pt-1 text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed">
-                            {responses[model.name]?.prompt}
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-4">
-                          <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
-                            {model.icon}
-                          </div>
-                          <div className="pt-1 text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed">
-                            {model.name === 'Perplexity' ? (
-                              <ResponseWithCitations 
-                                text={responses[model.name]?.answer}
-                                sources={responses[model.name]?.sources}
-                              />
-                            ) : (
-                              renderWithMarkdown(responses[model.name]?.answer)
-                            )}
-                            {loadingStates[model.name] && <span className="inline-block w-2 h-4 bg-white ml-1 animate-pulse" />}
-                          </div>
+            return (
+              <div 
+                key={model.name} 
+                className={`flex flex-col h-full border-r border-zinc-800 last:border-r-0 transition-all duration-500 ease-in-out ${widthClass}`}
+              >
+                <ChatHeader 
+                  model={model}
+                  isExpanded={isExpanded}
+                  isCollapsed={isCollapsed}
+                  onToggleExpand={() => handleToggleExpand(model.name)}
+                  onToggleEnabled={() => handleToggleModelEnabled(model.name)}
+                />
+                <div className={`flex-1 overflow-y-auto ${isCollapsed ? 'hidden' : 'block'}`}>
+                  {responses[model.name] ? (
+                    <div className="p-4 space-y-6 text-base">
+                      <div className="flex items-start gap-4">
+                        <UserIcon />
+                        <div className="pt-1 text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed">
+                          {responses[model.name]?.prompt}
                         </div>
                       </div>
-                    ) : (
-                      <div className="flex h-full items-center justify-center p-4">
-                          <div className="text-center text-zinc-500">
-                              <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#171717]">
-                                  <div className="scale-150">
-                                      {model.icon}
-                                  </div>
-                              </div>
-                              <h2 className="text-xl font-semibold text-zinc-300">{model.name}</h2>
-                              <p className="mt-1 text-sm">Output will appear here</p>
-                          </div>
+                      <div className="flex items-start gap-4">
+                        <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
+                          {model.icon}
+                        </div>
+                        <div className="pt-1 text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed">
+                          {model.name === 'Perplexity' ? (
+                            <ResponseWithCitations 
+                              text={responses[model.name]?.answer}
+                              sources={responses[model.name]?.sources}
+                            />
+                          ) : (
+                            renderWithMarkdown(responses[model.name]?.answer)
+                          )}
+                          {loadingStates[model.name] && <span className="inline-block w-2 h-4 bg-white ml-1 animate-pulse" />}
+                        </div>
                       </div>
-                    )}
-                  </div>
-                  {isCollapsed && (
-                      <div className="flex-1 overflow-hidden flex items-center justify-center">
-                          <div className="scale-125 opacity-80">
-                              {model.icon}
-                          </div>
-                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex h-full items-center justify-center p-4">
+                        <div className="text-center text-zinc-500">
+                            <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#171717]">
+                                <div className="scale-150">
+                                    {model.icon}
+                                </div>
+                            </div>
+                            <h2 className="text-xl font-semibold text-zinc-300">{model.name}</h2>
+                            <p className="mt-1 text-sm">Output will appear here</p>
+                        </div>
+                    </div>
                   )}
                 </div>
-              );
-            })}
-          </main>
-          <PromptInput onSend={handleSend} isLoading={isAnyModelLoading} />
-        </div>
+                {isCollapsed && (
+                    <div className="flex-1 overflow-hidden flex items-center justify-center">
+                        <div className="scale-125 opacity-80">
+                            {model.icon}
+                        </div>
+                    </div>
+                )}
+              </div>
+            );
+          })}
+        </main>
+        <PromptInput onSend={handleSend} isLoading={isAnyModelLoading} />
       </div>
     </div>
   );
