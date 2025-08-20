@@ -95,18 +95,28 @@ const ChatPage: React.FC = () => {
 
   const checkAuthStatus = async () => {
     if (typeof window.puter?.auth?.isSignedIn !== 'function') {
-      console.error("Puter SDK not fully available for auth check.");
+      console.error("Puter SDK not ready for auth check.");
       setIsSignedIn(false);
       setUser(null);
       return;
     }
     try {
       const signedIn = await window.puter.auth.isSignedIn();
-      setIsSignedIn(signedIn);
       if (signedIn) {
-        const currentUser = await window.puter.auth.getUser();
-        setUser(currentUser);
+        // If SDK thinks we are signed in, verify by fetching user data.
+        // This protects against stale tokens which cause 401 errors.
+        try {
+          const currentUser = await window.puter.auth.getUser();
+          setUser(currentUser);
+          setIsSignedIn(true);
+        } catch (getUserError) {
+          console.warn("Puter isSignedIn was true, but getUser failed. Treating as logged out.", getUserError);
+          setIsSignedIn(false);
+          setUser(null);
+        }
       } else {
+        // User is not signed in.
+        setIsSignedIn(false);
         setUser(null);
       }
     } catch (e) {
@@ -117,16 +127,28 @@ const ChatPage: React.FC = () => {
   };
 
   useEffect(() => {
-    // Delay initialization to ensure Puter SDK is loaded and ready
-    const timeoutId = setTimeout(checkAuthStatus, 200);
-    return () => clearTimeout(timeoutId);
+    // Poll for the Puter SDK to be ready instead of using a fixed timeout.
+    let attempts = 0;
+    const maxAttempts = 50; // 5 seconds timeout
+    const interval = setInterval(() => {
+        attempts++;
+        if (typeof window.puter?.auth?.isSignedIn === 'function') {
+            clearInterval(interval);
+            checkAuthStatus();
+        } else if (attempts > maxAttempts) {
+            clearInterval(interval);
+            console.error("Puter SDK failed to load in time.");
+            setIsSignedIn(false); // Assume not signed in and show login button
+        }
+    }, 100);
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogin = async () => {
     if (window.puter && window.puter.auth) {
       try {
         await window.puter.auth.signIn();
-        // After a successful sign-in, re-check the auth status to update the UI
         await checkAuthStatus();
       } catch (error) {
         console.error("Sign-in process failed or was cancelled.", error);
@@ -250,8 +272,14 @@ const ChatPage: React.FC = () => {
 
   if (isSignedIn === null) {
     return (
-      <div className="flex h-screen bg-[#212121] items-center justify-center">
-        {/* Intentionally blank while checking auth status to prevent pre-auth API calls */}
+      <div className="flex h-screen bg-[#212121] items-center justify-center text-white">
+        <div className="flex flex-col items-center gap-4">
+            <svg className="animate-spin h-8 w-8 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Connecting...</span>
+        </div>
       </div>
     );
   }
