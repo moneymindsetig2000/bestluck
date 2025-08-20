@@ -95,22 +95,12 @@ const ChatPage: React.FC = () => {
 
   const checkAuthStatus = async () => {
     try {
-      const signedIn = await window.puter.auth.isSignedIn();
-      if (signedIn) {
-        // If SDK says we are signed in, we verify it by fetching user data.
-        // This protects against stale sessions where isSignedIn() is true but API calls
-        // would fail with a 401 error.
-        const currentUser = await window.puter.auth.getUser();
-        setUser(currentUser);
-        setIsSignedIn(true);
-      } else {
-        // This is the expected case for a user who is not logged in.
-        setIsSignedIn(false);
-        setUser(null);
-      }
+      // The most reliable way to check for an active session is to fetch user data.
+      const currentUser = await window.puter.auth.getUser();
+      setUser(currentUser);
+      setIsSignedIn(true);
     } catch (error) {
-      // Any failure in the auth check (e.g., network error, or a stale token causing getUser to fail)
-      // should result in treating the user as logged out.
+      // Any error (401 Unauthorized, network error, etc.) means there's no valid session.
       console.error("Puter auth check failed, treating as logged out:", error);
       setIsSignedIn(false);
       setUser(null);
@@ -119,18 +109,17 @@ const ChatPage: React.FC = () => {
 
 
   useEffect(() => {
-    // Poll for the Puter SDK to be ready instead of using a fixed timeout.
     let attempts = 0;
-    const maxAttempts = 50; // 5 seconds timeout
+    const maxAttempts = 50; // 5 seconds
     const interval = setInterval(() => {
         attempts++;
-        if (typeof window.puter?.auth?.isSignedIn === 'function') {
+        if (typeof window.puter?.auth?.getUser === 'function') {
             clearInterval(interval);
             checkAuthStatus();
         } else if (attempts > maxAttempts) {
             clearInterval(interval);
             console.error("Puter SDK failed to load in time.");
-            setIsSignedIn(false); // Assume not signed in and show login button
+            setIsSignedIn(false);
         }
     }, 100);
 
@@ -262,37 +251,34 @@ const ChatPage: React.FC = () => {
 
   const isAnyModelLoading = Object.values(loadingStates).some(isLoading => isLoading);
 
-  if (isSignedIn === null) {
-    return (
-      <div className="flex h-screen bg-[#212121] items-center justify-center text-white">
-        <div className="flex flex-col items-center gap-4">
+  return (
+    <div className="flex h-screen bg-[#212121] text-white font-sans overflow-hidden relative">
+      {/* Loading Overlay */}
+      {isSignedIn === null && (
+        <div className="absolute inset-0 bg-[#212121] z-50 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-4">
             <svg className="animate-spin h-8 w-8 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
             <span>Connecting...</span>
+          </div>
         </div>
-      </div>
-    );
-  }
+      )}
 
-  if (isSignedIn === false) {
-    return (
-      <div className="flex h-screen bg-[#212121] text-white font-sans overflow-hidden relative">
-        <LoginOverlay onLogin={handleLogin} />
-      </div>
-    );
-  }
-  
-  return (
-    <div className="flex h-screen bg-[#212121] text-white font-sans overflow-hidden">
+      {/* Login Overlay */}
+      {isSignedIn === false && <LoginOverlay onLogin={handleLogin} />}
+
+      {/* Main App UI */}
       <Sidebar 
         isCollapsed={isSidebarCollapsed} 
         onToggleCollapse={() => setIsSidebarCollapsed(p => !p)} 
         user={user}
         onLogout={handleLogout}
       />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div 
+        className={`flex flex-1 flex-col overflow-hidden transition-opacity duration-300 ${isSignedIn ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+      >
         <main className="flex flex-1 overflow-x-auto">
           {modelConfigs.map((model) => {
             const isExpanded = expandedModel === model.name;
