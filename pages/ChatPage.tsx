@@ -95,28 +95,21 @@ const ChatPage: React.FC = () => {
 
   const checkAuthStatus = async () => {
     try {
-      // The polling in useEffect should ensure puter SDK is ready, but we double-check.
-      if (typeof window.puter?.auth?.isSignedIn !== 'function') {
-        throw new Error("Puter SDK not ready for auth check.");
-      }
-
       const signedIn = await window.puter.auth.isSignedIn();
-      if (!signedIn) {
-        // This is an expected case: user is not signed in or session is invalid.
-        // We'll show the login overlay.
+      if (signedIn) {
+        // If SDK says we are signed in, we verify it by fetching user data.
+        // This protects against stale sessions where isSignedIn() is true but API calls
+        // would fail with a 401 error.
+        const currentUser = await window.puter.auth.getUser();
+        setUser(currentUser);
+        setIsSignedIn(true);
+      } else {
+        // This is the expected case for a user who is not logged in.
         setIsSignedIn(false);
         setUser(null);
-        return;
       }
-
-      // If SDK says we are signed in, we verify it by fetching user data.
-      // This protects against stale sessions where isSignedIn() is true but API calls
-      // would fail with a 401 error.
-      const currentUser = await window.puter.auth.getUser();
-      setUser(currentUser);
-      setIsSignedIn(true);
     } catch (error) {
-      // Any failure in the auth check (e.g., network error, stale token on getUser)
+      // Any failure in the auth check (e.g., network error, or a stale token causing getUser to fail)
       // should result in treating the user as logged out.
       console.error("Puter auth check failed, treating as logged out:", error);
       setIsSignedIn(false);
