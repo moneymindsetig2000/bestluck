@@ -94,37 +94,36 @@ const ChatPage: React.FC = () => {
   const [user, setUser] = useState<any | null>(null);
 
   const checkAuthStatus = async () => {
-    if (typeof window.puter?.auth?.isSignedIn !== 'function') {
-      console.error("Puter SDK not ready for auth check.");
-      setIsSignedIn(false);
-      setUser(null);
-      return;
-    }
     try {
+      // The polling in useEffect should ensure puter SDK is ready, but we double-check.
+      if (typeof window.puter?.auth?.isSignedIn !== 'function') {
+        throw new Error("Puter SDK not ready for auth check.");
+      }
+
       const signedIn = await window.puter.auth.isSignedIn();
-      if (signedIn) {
-        // If SDK thinks we are signed in, verify by fetching user data.
-        // This protects against stale tokens which cause 401 errors.
-        try {
-          const currentUser = await window.puter.auth.getUser();
-          setUser(currentUser);
-          setIsSignedIn(true);
-        } catch (getUserError) {
-          console.warn("Puter isSignedIn was true, but getUser failed. Treating as logged out.", getUserError);
-          setIsSignedIn(false);
-          setUser(null);
-        }
-      } else {
-        // User is not signed in.
+      if (!signedIn) {
+        // This is an expected case: user is not signed in or session is invalid.
+        // We'll show the login overlay.
         setIsSignedIn(false);
         setUser(null);
+        return;
       }
-    } catch (e) {
-      console.error("Error checking Puter auth status:", e);
+
+      // If SDK says we are signed in, we verify it by fetching user data.
+      // This protects against stale sessions where isSignedIn() is true but API calls
+      // would fail with a 401 error.
+      const currentUser = await window.puter.auth.getUser();
+      setUser(currentUser);
+      setIsSignedIn(true);
+    } catch (error) {
+      // Any failure in the auth check (e.g., network error, stale token on getUser)
+      // should result in treating the user as logged out.
+      console.error("Puter auth check failed, treating as logged out:", error);
       setIsSignedIn(false);
       setUser(null);
     }
   };
+
 
   useEffect(() => {
     // Poll for the Puter SDK to be ready instead of using a fixed timeout.
@@ -149,9 +148,9 @@ const ChatPage: React.FC = () => {
     if (window.puter && window.puter.auth) {
       try {
         await window.puter.auth.signIn();
-        await checkAuthStatus();
+        await checkAuthStatus(); // Re-check status after sign-in attempt
       } catch (error) {
-        console.error("Sign-in process failed or was cancelled.", error);
+        console.error("Sign-in process failed or was cancelled by user.", error);
       }
     }
   };
