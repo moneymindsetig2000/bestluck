@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from '../components/chat/Sidebar';
 import ChatHeader from '../components/chat/ChatHeader';
 import PromptInput from '../components/chat/PromptInput';
@@ -160,6 +160,43 @@ const ChatPage: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
+  const isLoadingRef = useRef(false); // For triggering save after loading
+  const CHATS_FILE_PATH = '/apps/ai-fiesta/chats/current_chat.json';
+
+  const saveChatsToPuter = useCallback(async (chats: Record<string, Response>) => {
+    if (!isSignedIn || typeof window.puter?.fs?.writeFile !== 'function') {
+        return;
+    }
+    try {
+        const dirPath = CHATS_FILE_PATH.substring(0, CHATS_FILE_PATH.lastIndexOf('/'));
+        await window.puter.fs.mkdir(dirPath, { parents: true });
+        await window.puter.fs.writeFile(CHATS_FILE_PATH, JSON.stringify(chats, null, 2));
+        console.log('Chats saved successfully.');
+    } catch (error) {
+        console.error('Failed to save chats to Puter:', error);
+    }
+  }, [isSignedIn]);
+
+  const loadChatsFromPuter = useCallback(async () => {
+    if (typeof window.puter?.fs?.readFile !== 'function') {
+        return;
+    }
+    try {
+        const fileContent = await window.puter.fs.readFile(CHATS_FILE_PATH);
+        const savedChats = JSON.parse(fileContent);
+        if (savedChats && typeof savedChats === 'object' && Object.keys(savedChats).length > 0) {
+            setResponses(savedChats);
+            console.log('Chats loaded successfully.');
+        }
+    } catch (error: any) {
+        if (error.name === 'NotFoundError') {
+            console.log('No saved chats found. Starting fresh.');
+        } else {
+            console.error('Failed to load chats from Puter:', error);
+        }
+    }
+  }, [setResponses]);
+
   useEffect(() => {
     const checkSession = async () => {
       setIsAuthChecking(true);
@@ -179,6 +216,14 @@ const ChatPage: React.FC = () => {
 
     checkSession();
   }, []);
+
+  // Effect to load chats once signed in
+  useEffect(() => {
+    if (isSignedIn) {
+      loadChatsFromPuter();
+    }
+  }, [isSignedIn, loadChatsFromPuter]);
+
 
   const handleLogin = async () => {
     setIsLoggingIn(true);
@@ -329,6 +374,20 @@ const ChatPage: React.FC = () => {
   };
 
   const isAnyModelLoading = Object.values(loadingStates).some(isLoading => isLoading);
+
+  // Effect to save chats after responses are done streaming
+  useEffect(() => {
+    // If we were loading, but now we are not, it means streams just finished.
+    if (isLoadingRef.current && !isAnyModelLoading && isSignedIn) {
+      // We check if responses is not empty to avoid saving on initial load.
+      if (Object.keys(responses).length > 0) {
+        saveChatsToPuter(responses);
+      }
+    }
+    // Update the ref for the next render.
+    isLoadingRef.current = isAnyModelLoading;
+  }, [isAnyModelLoading, isSignedIn, responses, saveChatsToPuter]);
+
 
   return (
     <div className="flex h-screen bg-[#212121] text-white font-sans overflow-hidden">
