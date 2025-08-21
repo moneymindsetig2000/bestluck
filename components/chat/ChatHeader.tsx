@@ -16,8 +16,12 @@ interface ChatHeaderProps {
 
 const ToggleSwitch = ({ enabled, onToggle }: { enabled: boolean, onToggle: () => void }) => {
     return (
-        <button onClick={onToggle} className={`relative inline-flex items-center h-5 w-9 rounded-full transition-colors ${enabled ? 'bg-green-500' : 'bg-gray-600'}`}>
-            <span className={`inline-block w-3.5 h-3.5 transform bg-white rounded-full transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+        <button 
+            onClick={onToggle} 
+            className={`relative inline-flex flex-shrink-0 items-center h-6 w-11 rounded-full transition-colors duration-200 ease-in-out border ${enabled ? 'bg-white border-zinc-800' : 'bg-zinc-700 border-zinc-600'}`}
+            aria-pressed={enabled}
+        >
+            <span className={`inline-block w-4 h-4 transform rounded-full transition-all duration-200 ease-in-out ${enabled ? 'bg-black translate-x-6' : 'bg-white translate-x-1'}`} />
         </button>
     );
 };
