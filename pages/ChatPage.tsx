@@ -158,6 +158,27 @@ const ChatPage: React.FC = () => {
   const [user, setUser] = useState<any | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+
+  useEffect(() => {
+    const checkSession = async () => {
+      setIsAuthChecking(true);
+      try {
+        await loadPuterSDK();
+        const currentUser = await window.puter.auth.getUser();
+        setUser(currentUser);
+        setIsSignedIn(true);
+      } catch (error) {
+        console.log("No active session found on page load.");
+        setIsSignedIn(false);
+        setUser(null);
+      } finally {
+        setIsAuthChecking(false);
+      }
+    };
+
+    checkSession();
+  }, []);
 
   const handleLogin = async () => {
     setIsLoggingIn(true);
@@ -317,6 +338,7 @@ const ChatPage: React.FC = () => {
         user={user}
         onLogout={handleLogout}
         onLogin={promptLogin}
+        isAuthChecking={isAuthChecking}
       />
       <div 
         className="flex flex-1 flex-col overflow-hidden"

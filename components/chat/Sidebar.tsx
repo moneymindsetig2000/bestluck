@@ -25,9 +25,10 @@ interface SidebarProps {
   user: { name: string; avatar: string; } | null;
   onLogout: () => void;
   onLogin: () => void;
+  isAuthChecking: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, onLogout, onLogin }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, onLogout, onLogin, isAuthChecking }) => {
   return (
     <aside className={`transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-[260px]'} bg-[#171717] p-2 flex flex-col h-screen border-r border-zinc-800`}>
       <div className={`flex items-center mb-4 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
@@ -65,7 +66,17 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, 
                 {isCollapsed ? '' : 'Collapse'}
             </span>
          </button>
-          {user ? (
+          { isAuthChecking ? (
+            <div className={`flex items-center w-full p-2 rounded-lg text-gray-400 ${isCollapsed ? 'justify-center' : ''}`}>
+                <svg className="animate-spin h-5 w-5 text-white flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className={`whitespace-nowrap overflow-hidden transition-all ${isCollapsed ? 'w-0' : 'w-auto ml-3'}`}>
+                    {!isCollapsed && 'Authenticating...'}
+                </span>
+            </div>
+          ) : user ? (
             <>
               <div className={`flex items-center w-full p-2 rounded-lg text-gray-300 ${isCollapsed ? 'justify-center' : ''}`}>
                 <img src={user.avatar} alt={user.name} className="h-6 w-6 flex-shrink-0 rounded-full" />
