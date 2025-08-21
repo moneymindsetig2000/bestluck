@@ -37,6 +37,42 @@ const initialModels: ModelConfig[] = [
   { name: 'Claude', icon: <ClaudeIcon />, enabled: true, puterModel: 'openrouter:anthropic/claude-sonnet-4' },
 ];
 
+// A singleton promise to ensure we only try to check for the SDK once.
+// This prevents multiple polling intervals from running.
+let puterReadyPromise: Promise<boolean> | null = null;
+
+const getPuterReadyPromise = (): Promise<boolean> => {
+    if (puterReadyPromise) {
+        return puterReadyPromise;
+    }
+
+    puterReadyPromise = new Promise((resolve) => {
+        // Check if SDK is already available when the function is first called
+        if (typeof window.puter?.auth?.getUser === 'function') {
+            return resolve(true);
+        }
+
+        let attempts = 0;
+        const maxAttempts = 300; // Increased to 30 seconds for slower connections
+        const interval = setInterval(() => {
+            attempts++;
+            if (typeof window.puter?.auth?.getUser === 'function') {
+                clearInterval(interval);
+                resolve(true);
+            } else if (attempts > maxAttempts) {
+                clearInterval(interval);
+                // This error is expected if the script is blocked or network is slow.
+                // The UI will guide the user via an alert if they try to log in.
+                console.error("Puter SDK failed to load after 30 seconds. This could be due to a slow network connection or an ad-blocker.");
+                resolve(false);
+            }
+        }, 100);
+    });
+
+    return puterReadyPromise;
+};
+
+
 const UserIcon = () => (
   <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center flex-shrink-0">
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-zinc-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -99,31 +135,8 @@ const ChatPage: React.FC = () => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
-  const waitForPuter = (): Promise<boolean> => {
-    return new Promise((resolve) => {
-        // Check if SDK is already available
-        if (typeof window.puter?.auth?.getUser === 'function') {
-            return resolve(true);
-        }
-
-        let attempts = 0;
-        const maxAttempts = 150; // Wait for 15 seconds
-        const interval = setInterval(() => {
-            attempts++;
-            if (typeof window.puter?.auth?.getUser === 'function') {
-                clearInterval(interval);
-                resolve(true);
-            } else if (attempts > maxAttempts) {
-                clearInterval(interval);
-                console.error("Puter SDK failed to load after 15 seconds. This could be due to a slow network connection or an ad-blocker.");
-                resolve(false);
-            }
-        }, 100);
-    });
-  };
-
   const checkAuthStatus = async () => {
-    const isReady = await waitForPuter();
+    const isReady = await getPuterReadyPromise();
     if (!isReady) {
         setIsSignedIn(false);
         return;
@@ -146,7 +159,7 @@ const ChatPage: React.FC = () => {
 
   const handleLogin = async () => {
     setIsLoggingIn(true);
-    const isReady = await waitForPuter();
+    const isReady = await getPuterReadyPromise();
     if (isReady) {
       try {
         await window.puter.auth.signIn();
