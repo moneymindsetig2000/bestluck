@@ -160,7 +160,13 @@ const ChatPage: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
-  const isLoadingRef = useRef(false); // For triggering save after loading
+  const isLoadingRef = useRef(false);
+  const responsesRef = useRef(responses);
+
+  useEffect(() => {
+    responsesRef.current = responses;
+  }, [responses]);
+
   const CHATS_FILE_PATH = '/apps/ai-fiesta/chats/current_chat.json';
 
   const saveChatsToPuter = useCallback(async (chats: Record<string, Response[]>) => {
@@ -195,7 +201,7 @@ const ChatPage: React.FC = () => {
             console.error('Failed to load chats from Puter:', error);
         }
     }
-  }, [setResponses]);
+  }, []);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -377,13 +383,16 @@ const ChatPage: React.FC = () => {
 
   // Effect to save chats after responses are done streaming
   useEffect(() => {
+    // This condition checks for the moment when loading has just finished
     if (isLoadingRef.current && !isAnyModelLoading && isSignedIn) {
-      if (Object.values(responses).some(history => history.length > 0)) {
-        saveChatsToPuter(responses);
+      const currentResponses = responsesRef.current;
+      if (Object.values(currentResponses).some(history => history.length > 0)) {
+        saveChatsToPuter(currentResponses);
       }
     }
+    // Track the current loading state for the next run
     isLoadingRef.current = isAnyModelLoading;
-  }, [isAnyModelLoading, isSignedIn, responses, saveChatsToPuter]);
+  }, [isAnyModelLoading, isSignedIn, saveChatsToPuter]);
 
 
   return (
