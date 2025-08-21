@@ -56,43 +56,35 @@ const renderWithMarkdown = (text: string | undefined) => {
   });
 };
 
-const LoadingScreen: React.FC = () => (
-    <div className="flex h-screen w-screen items-center justify-center bg-[#212121] text-white">
-        <div className="flex flex-col items-center gap-4">
-            <svg className="animate-spin h-8 w-8 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span>Connecting...</span>
-        </div>
+const LoginModal: React.FC<{ onLogin: () => void; isLoggingIn: boolean; onClose: () => void; }> = ({ onLogin, isLoggingIn, onClose }) => (
+  <div className="bg-[#171717] p-8 rounded-2xl border border-zinc-800 text-center max-w-sm shadow-lg animate-fade-in relative">
+    <button onClick={onClose} aria-label="Close" className="absolute top-3 right-3 text-zinc-500 hover:text-white transition-colors p-1 rounded-full hover:bg-zinc-700">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+    </button>
+    <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#272727]">
+        <svg width="32" height="32" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <ellipse cx="14" cy="14" rx="12" ry="5" transform="rotate(45 14 14)" stroke="url(#g1_login)" strokeWidth="2.5"/>
+          <ellipse cx="14" cy="14" rx="12" ry="5" transform="rotate(-45 14 14)" stroke="url(#g2_login)" strokeWidth="2.5"/>
+          <defs>
+            <linearGradient id="g1_login" x1="2" y1="14" x2="26" y2="14" gradientUnits="userSpaceOnUse"><stop stopColor="#67E8F9"/><stop offset="1" stopColor="#0891B2"/></linearGradient>
+            <linearGradient id="g2_login" x1="2" y1="14" x2="26" y2="14" gradientUnits="userSpaceOnUse"><stop stopColor="#34D399"/><stop offset="1" stopColor="#059669"/></linearGradient>
+          </defs>
+        </svg>
     </div>
-);
-
-const LoginScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => (
-  <div className="flex h-screen w-screen items-center justify-center bg-[#212121] p-4">
-    <div className="bg-[#171717] p-8 rounded-2xl border border-zinc-800 text-center max-w-sm shadow-lg animate-fade-in">
-        <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#272727]">
-            <svg width="32" height="32" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <ellipse cx="14" cy="14" rx="12" ry="5" transform="rotate(45 14 14)" stroke="url(#g1_login)" strokeWidth="2.5"/>
-              <ellipse cx="14" cy="14" rx="12" ry="5" transform="rotate(-45 14 14)" stroke="url(#g2_login)" strokeWidth="2.5"/>
-              <defs>
-                <linearGradient id="g1_login" x1="2" y1="14" x2="26" y2="14" gradientUnits="userSpaceOnUse"><stop stopColor="#67E8F9"/><stop offset="1" stopColor="#0891B2"/></linearGradient>
-                <linearGradient id="g2_login" x1="2" y1="14" x2="26" y2="14" gradientUnits="userSpaceOnUse"><stop stopColor="#34D399"/><stop offset="1" stopColor="#059669"/></linearGradient>
-              </defs>
-            </svg>
-        </div>
-        <h2 className="text-2xl font-bold text-white mb-2">Welcome to AI Fiesta</h2>
-        <p className="text-zinc-400 mb-6">
-            To start chatting with all AIs at once, please connect your Puter account. This is a one-time step for security.
-        </p>
-        <button
-            onClick={onLogin}
-            className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-teal-400 to-green-500 text-black font-bold px-8 py-3 rounded-full hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300 relative overflow-hidden text-lg transform hover:-translate-y-0.5 group"
-        >
-            <span className="relative z-10">Connect and Start Chatting</span>
+    <h2 className="text-2xl font-bold text-white mb-2">Welcome to AI Fiesta</h2>
+    <p className="text-zinc-400 mb-6">
+        To start chatting with all AIs at once, please connect your Puter account. This is a one-time step for security.
+    </p>
+    <button
+        onClick={onLogin}
+        disabled={isLoggingIn}
+        className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-teal-400 to-green-500 text-black font-bold px-8 py-3 rounded-full hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300 relative overflow-hidden text-lg transform hover:-translate-y-0.5 group disabled:opacity-70 disabled:cursor-wait disabled:transform-none disabled:shadow-none"
+    >
+        <span className="relative z-10">{isLoggingIn ? 'Connecting...' : 'Connect and Start Chatting'}</span>
+         {!isLoggingIn && (
             <svg className="relative z-10 w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-        </button>
-    </div>
+         )}
+    </button>
   </div>
 );
 
@@ -102,10 +94,40 @@ const ChatPage: React.FC = () => {
   const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>(initialModels);
   const [responses, setResponses] = useState<Record<string, Response>>({});
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
-  const [isSignedIn, setIsSignedIn] = useState<boolean | null>(null);
+  const [isSignedIn, setIsSignedIn] = useState<boolean>(false);
   const [user, setUser] = useState<any | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+
+  const waitForPuter = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+        // Check if SDK is already available
+        if (typeof window.puter?.auth?.getUser === 'function') {
+            return resolve(true);
+        }
+
+        let attempts = 0;
+        const maxAttempts = 150; // Wait for 15 seconds
+        const interval = setInterval(() => {
+            attempts++;
+            if (typeof window.puter?.auth?.getUser === 'function') {
+                clearInterval(interval);
+                resolve(true);
+            } else if (attempts > maxAttempts) {
+                clearInterval(interval);
+                console.error("Puter SDK failed to load after 15 seconds. This could be due to a slow network connection or an ad-blocker.");
+                resolve(false);
+            }
+        }, 100);
+    });
+  };
 
   const checkAuthStatus = async () => {
+    const isReady = await waitForPuter();
+    if (!isReady) {
+        setIsSignedIn(false);
+        return;
+    }
     try {
       const currentUser = await window.puter.auth.getUser();
       setUser(currentUser);
@@ -119,32 +141,24 @@ const ChatPage: React.FC = () => {
 
 
   useEffect(() => {
-    let attempts = 0;
-    const maxAttempts = 50; // 5 seconds
-    const interval = setInterval(() => {
-        attempts++;
-        if (typeof window.puter?.auth?.getUser === 'function') {
-            clearInterval(interval);
-            checkAuthStatus();
-        } else if (attempts > maxAttempts) {
-            clearInterval(interval);
-            console.error("Puter SDK failed to load in time.");
-            setIsSignedIn(false);
-        }
-    }, 100);
-
-    return () => clearInterval(interval);
+    checkAuthStatus();
   }, []);
 
   const handleLogin = async () => {
-    if (window.puter && window.puter.auth) {
+    setIsLoggingIn(true);
+    const isReady = await waitForPuter();
+    if (isReady) {
       try {
         await window.puter.auth.signIn();
         await checkAuthStatus();
+        setShowLoginModal(false);
       } catch (error) {
         console.error("Sign-in process failed or was cancelled by user.", error);
       }
+    } else {
+        alert("Could not connect to the authentication service. Please check your network connection, disable any ad-blockers, and refresh the page.");
     }
+    setIsLoggingIn(false);
   };
   
   const handleLogout = async () => {
@@ -157,6 +171,10 @@ const ChatPage: React.FC = () => {
         console.error("Sign-out process failed.", error);
       }
     }
+  };
+
+  const promptLogin = () => {
+    setShowLoginModal(true);
   };
 
   const handleToggleExpand = (modelName: string) => {
@@ -229,8 +247,7 @@ const ChatPage: React.FC = () => {
 
   const handleSend = (prompt: string) => {
     if (!isSignedIn) {
-        console.warn("Attempted to send prompt while not signed in.");
-        handleLogin();
+        promptLogin();
         return;
     }
 
@@ -261,14 +278,6 @@ const ChatPage: React.FC = () => {
 
   const isAnyModelLoading = Object.values(loadingStates).some(isLoading => isLoading);
 
-  if (isSignedIn === null) {
-    return <LoadingScreen />;
-  }
-
-  if (isSignedIn === false) {
-    return <LoginScreen onLogin={handleLogin} />;
-  }
-
   return (
     <div className="flex h-screen bg-[#212121] text-white font-sans overflow-hidden">
       <Sidebar 
@@ -276,6 +285,7 @@ const ChatPage: React.FC = () => {
         onToggleCollapse={() => setIsSidebarCollapsed(p => !p)} 
         user={user}
         onLogout={handleLogout}
+        onLogin={promptLogin}
       />
       <div 
         className="flex flex-1 flex-col overflow-hidden"
@@ -355,8 +365,13 @@ const ChatPage: React.FC = () => {
             );
           })}
         </main>
-        <PromptInput onSend={handleSend} isLoading={isAnyModelLoading} />
+        <PromptInput onSend={handleSend} isLoading={isAnyModelLoading} isSignedIn={isSignedIn} />
       </div>
+      {showLoginModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+            <LoginModal onLogin={handleLogin} isLoggingIn={isLoggingIn} onClose={() => setShowLoginModal(false)} />
+        </div>
+      )}
     </div>
   );
 };

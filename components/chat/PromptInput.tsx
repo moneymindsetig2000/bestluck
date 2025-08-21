@@ -3,9 +3,10 @@ import React from 'react';
 interface PromptInputProps {
   onSend: (prompt: string) => void;
   isLoading: boolean;
+  isSignedIn: boolean;
 }
 
-const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading }) => {
+const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn }) => {
     const [text, setText] = React.useState('');
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
     
@@ -38,7 +39,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading }) => {
                 <textarea
                     ref={textareaRef}
                     className="w-full bg-transparent text-gray-200 placeholder-gray-500 focus:outline-none resize-none max-h-48 disabled:opacity-50"
-                    placeholder="Ask me anything..."
+                    placeholder={isSignedIn ? "Ask me anything..." : "Please sign in to start chatting..."}
                     rows={1}
                     value={text}
                     onInput={handleInput}

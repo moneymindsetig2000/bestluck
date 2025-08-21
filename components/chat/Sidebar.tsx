@@ -24,9 +24,10 @@ interface SidebarProps {
   onToggleCollapse: () => void;
   user: { name: string; avatar: string; } | null;
   onLogout: () => void;
+  onLogin: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, onLogout, onLogin }) => {
   return (
     <aside className={`transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-[260px]'} bg-[#171717] p-2 flex flex-col h-screen border-r border-zinc-800`}>
       <div className={`flex items-center mb-4 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
@@ -82,7 +83,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, 
               </button>
             </>
           ) : (
-            <div className="h-20" /> // Placeholder to prevent layout shift when signed out
+            <button onClick={onLogin} className={`flex items-center w-full p-2 rounded-lg text-gray-300 hover:bg-[#272727] ${isCollapsed ? 'justify-center' : ''}`} aria-label="Sign In">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 11a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1v-1z" /></svg>
+                <span className={`whitespace-nowrap overflow-hidden transition-all ${isCollapsed ? 'w-0' : 'w-auto ml-3'}`}>
+                  {!isCollapsed && 'Sign In'}
+                </span>
+              </button>
           )}
          <button className={`flex items-center w-full p-2 rounded-lg text-gray-300 hover:bg-[#272727] ${isCollapsed ? 'justify-center' : ''}`}>
              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
