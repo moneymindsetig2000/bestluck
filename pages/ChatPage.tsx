@@ -372,7 +372,7 @@ const ChatPage: React.FC = () => {
                     <div className="p-4 space-y-6 text-base">
                       <div className="flex items-start gap-4">
                         <UserIcon />
-                        <div className="pt-1 text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed">
+                        <div className="flex-1 bg-black/30 rounded-lg p-3 text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed">
                           {responses[model.name]?.prompt}
                         </div>
                       </div>
@@ -380,7 +380,7 @@ const ChatPage: React.FC = () => {
                         <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
                           {model.icon}
                         </div>
-                        <div className="pt-1 text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed">
+                        <div className="flex-1 text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed">
                           {model.name === 'Perplexity' ? (
                             <ResponseWithCitations 
                               text={responses[model.name]?.answer}
