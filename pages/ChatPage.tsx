@@ -11,6 +11,65 @@ declare global {
   }
 }
 
+// Singleton promise to ensure the SDK is loaded only once.
+let puterSDKPromise: Promise<void> | null = null;
+
+const loadPuterSDK = (): Promise<void> => {
+  if (puterSDKPromise) {
+    return puterSDKPromise;
+  }
+
+  puterSDKPromise = new Promise<void>((resolve, reject) => {
+    // If SDK is already available, resolve immediately.
+    if (typeof window.puter?.auth?.signIn === 'function') {
+      return resolve();
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://js.puter.com/v2/';
+    script.async = true;
+
+    // A global timeout for the entire process, including download.
+    const globalTimeout = setTimeout(() => {
+        reject(new Error("Puter SDK timed out after 30 seconds. This could be due to a slow network connection or an ad-blocker."));
+    }, 30000);
+
+    script.onload = () => {
+        // The script has loaded, but `puter` might not be initialized yet.
+        // We poll for a period for it to become ready.
+        const startTime = Date.now();
+        const interval = setInterval(() => {
+            if (typeof window.puter?.auth?.signIn === 'function') {
+                clearInterval(interval);
+                clearTimeout(globalTimeout);
+                resolve();
+            } else if (Date.now() - startTime > 10000) { // Increased timeout from 5s to 10s
+                clearInterval(interval);
+                clearTimeout(globalTimeout);
+                // Provide a more detailed error message
+                let detailedError = "Puter SDK was downloaded but failed to initialize within 10 seconds. This can be caused by browser extensions (like ad-blockers), corporate firewalls, or a temporary issue with the Puter service. Please try disabling extensions and refreshing the page.";
+                if (window.puter) {
+                  detailedError += " The 'puter' object was found, but was incomplete."
+                } else {
+                  detailedError += " The 'puter' object was not found on the window."
+                }
+                reject(new Error(detailedError));
+            }
+        }, 100);
+    };
+
+    script.onerror = () => {
+        clearTimeout(globalTimeout);
+        reject(new Error("Failed to load the Puter SDK script. Please check your network connection and disable any ad-blockers that may be blocking js.puter.com."));
+    };
+
+    document.body.appendChild(script);
+  });
+
+  return puterSDKPromise;
+};
+
+
 interface ModelConfig {
   name: string;
   icon: React.ReactNode;
@@ -36,42 +95,6 @@ const initialModels: ModelConfig[] = [
   { name: 'Perplexity', icon: <PerplexityIcon />, enabled: true, puterModel: 'openrouter:perplexity/sonar' },
   { name: 'Claude', icon: <ClaudeIcon />, enabled: true, puterModel: 'openrouter:anthropic/claude-sonnet-4' },
 ];
-
-// A singleton promise to ensure we only try to check for the SDK once.
-// This prevents multiple polling intervals from running.
-let puterReadyPromise: Promise<boolean> | null = null;
-
-const getPuterReadyPromise = (): Promise<boolean> => {
-    if (puterReadyPromise) {
-        return puterReadyPromise;
-    }
-
-    puterReadyPromise = new Promise((resolve) => {
-        // Check if SDK is already available when the function is first called
-        if (typeof window.puter?.auth?.getUser === 'function') {
-            return resolve(true);
-        }
-
-        let attempts = 0;
-        const maxAttempts = 300; // Increased to 30 seconds for slower connections
-        const interval = setInterval(() => {
-            attempts++;
-            if (typeof window.puter?.auth?.getUser === 'function') {
-                clearInterval(interval);
-                resolve(true);
-            } else if (attempts > maxAttempts) {
-                clearInterval(interval);
-                // This error is expected if the script is blocked or network is slow.
-                // The UI will guide the user via an alert if they try to log in.
-                console.error("Puter SDK failed to load after 30 seconds. This could be due to a slow network connection or an ad-blocker.");
-                resolve(false);
-            }
-        }, 100);
-    });
-
-    return puterReadyPromise;
-};
-
 
 const UserIcon = () => (
   <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center flex-shrink-0">
@@ -130,59 +153,54 @@ const ChatPage: React.FC = () => {
   const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>(initialModels);
   const [responses, setResponses] = useState<Record<string, Response>>({});
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
+  
   const [isSignedIn, setIsSignedIn] = useState<boolean>(false);
   const [user, setUser] = useState<any | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
-  const checkAuthStatus = async () => {
-    const isReady = await getPuterReadyPromise();
-    if (!isReady) {
-        setIsSignedIn(false);
-        return;
-    }
+  const handleLogin = async () => {
+    setIsLoggingIn(true);
     try {
+      await loadPuterSDK();
+
+      // signIn() will open the popup. It rejects if the user cancels.
+      await window.puter.auth.signIn();
+
+      // If we get here, sign-in was successful.
       const currentUser = await window.puter.auth.getUser();
       setUser(currentUser);
       setIsSignedIn(true);
-    } catch (error) {
-      console.info("Auth check: User is not signed in.", error);
-      setIsSignedIn(false);
-      setUser(null);
-    }
-  };
+      setShowLoginModal(false);
 
-
-  useEffect(() => {
-    checkAuthStatus();
-  }, []);
-
-  const handleLogin = async () => {
-    setIsLoggingIn(true);
-    const isReady = await getPuterReadyPromise();
-    if (isReady) {
-      try {
-        await window.puter.auth.signIn();
-        await checkAuthStatus();
-        setShowLoginModal(false);
-      } catch (error) {
-        console.error("Sign-in process failed or was cancelled by user.", error);
+    } catch (error: any) {
+      console.error("Sign-in process failed:", error);
+      // Don't show an alert if the error message suggests the user cancelled.
+      const errorMessage = (error?.message || '').toLowerCase();
+      if (!errorMessage.includes('cancel') && !errorMessage.includes('closed')) {
+         alert(`Login failed. This could be due to a popup blocker or a network issue. Please try again.\n\nDetails: ${error.message}`);
       }
-    } else {
-        alert("Could not connect to the authentication service. Please check your network connection, disable any ad-blockers, and refresh the page.");
+    } finally {
+      setIsLoggingIn(false);
     }
-    setIsLoggingIn(false);
   };
   
   const handleLogout = async () => {
-    if (window.puter && window.puter.auth) {
-      try {
-        await window.puter.auth.signOut();
+    if (typeof window.puter?.auth?.signOut !== 'function') {
+        // If SDK is not available, we can't formally sign out,
+        // but we can clear the state locally for a good UX.
         setIsSignedIn(false);
         setUser(null);
-      } catch (error) {
-        console.error("Sign-out process failed.", error);
-      }
+        console.warn("Puter SDK not available for sign out. Cleared local session.");
+        return;
+    }
+    try {
+       await window.puter.auth.signOut();
+       setIsSignedIn(false);
+       setUser(null);
+    } catch (error) {
+      console.error("Sign-out process failed.", error);
+      alert("Sign-out failed. Please try again.");
     }
   };
 
