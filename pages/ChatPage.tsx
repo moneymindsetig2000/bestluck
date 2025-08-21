@@ -159,64 +159,74 @@ const ChatPage: React.FC = () => {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [fsError, setFsError] = useState<string | null>(null);
 
   const prevLoadingStatesRef = useRef<Record<string, boolean>>({});
-  const CHATS_FILE_PATH = '/apps/ai-fiesta/chats/current_chat.json';
+  const CHATS_FILE_PATH = '/apps/myapp/chats.json';
+  const CHATS_DIR_PATH = '/apps/myapp';
+
 
   const saveChatsToPuter = useCallback(async (chats: Record<string, Response[]>) => {
     if (!isSignedIn || typeof window.puter?.fs?.writeFile !== 'function') {
         return;
     }
     try {
-        const dirPath = CHATS_FILE_PATH.substring(0, CHATS_FILE_PATH.lastIndexOf('/'));
-        await window.puter.fs.mkdir(dirPath, { parents: true });
+        await window.puter.fs.mkdir(CHATS_DIR_PATH, { parents: true });
         await window.puter.fs.writeFile(CHATS_FILE_PATH, JSON.stringify(chats, null, 2));
         console.log('Chats saved successfully.');
     } catch (error) {
         console.error('Failed to save chats to Puter:', error);
+        setFsError("Failed to save chat. Please check your connection.");
     }
   }, [isSignedIn]);
 
-  const setupPuterFileSystem = useCallback(async () => {
-    if (typeof window.puter?.fs?.mkdir !== 'function' || typeof window.puter?.fs?.exists !== 'function' || typeof window.puter.fs.writeFile !== 'function') {
-        console.warn('Puter FS not available for file system setup.');
-        return;
-    }
-    try {
-        const dirPath = CHATS_FILE_PATH.substring(0, CHATS_FILE_PATH.lastIndexOf('/'));
-        // Ensure directory exists
-        await window.puter.fs.mkdir(dirPath, { parents: true });
-        
-        // Ensure file exists
-        const fileExists = await window.puter.fs.exists(CHATS_FILE_PATH);
-        if (!fileExists) {
-            await window.puter.fs.writeFile(CHATS_FILE_PATH, JSON.stringify({}));
-            console.log('Initial chat file created.');
-        }
-    } catch (error) {
-        console.error('Failed to setup Puter file system:', error);
-    }
-  }, []);
+  const setupAndLoadChats = useCallback(async () => {
+    setFsError(null);
+    await new Promise(resolve => setTimeout(resolve, 100));
 
-  const loadChatsFromPuter = useCallback(async () => {
-    if (typeof window.puter?.fs?.readFile !== 'function') {
+    if (typeof window.puter?.fs?.mkdir !== 'function') {
+        console.error("Puter FS is not available after login.");
+        setFsError("File system not available. Chat history cannot be saved or loaded.");
         return;
     }
+
     try {
+        // Step 1: Ensure the directory exists. This is idempotent.
+        await window.puter.fs.mkdir(CHATS_DIR_PATH, { parents: true });
+
+        // Step 2: Check for file existence using stat and create if it doesn't exist.
+        try {
+            await window.puter.fs.stat(CHATS_FILE_PATH);
+        } catch (e: any) {
+            // If stat fails, assume file doesn't exist and create it.
+            // A more robust check might inspect error codes, but this is generally safe.
+            console.log('Chat file not found, creating it...');
+            await window.puter.fs.writeFile(CHATS_FILE_PATH, JSON.stringify({}));
+        }
+
+        // Step 3: Now that we are sure the file exists, read it.
         const fileContent = await window.puter.fs.readFile(CHATS_FILE_PATH);
-        const savedChats = JSON.parse(fileContent);
-        if (savedChats && typeof savedChats === 'object' && Object.keys(savedChats).length > 0) {
-            setResponses(savedChats);
-            console.log('Chats loaded successfully.');
-        } else {
-            console.log('No previous chats found in file, starting fresh.');
+        try {
+            const savedChats = JSON.parse(fileContent);
+            if (savedChats && typeof savedChats === 'object' && !Array.isArray(savedChats)) {
+                setResponses(savedChats);
+                console.log('Chats loaded successfully from:', CHATS_FILE_PATH);
+            } else {
+                console.warn('Chat file is malformed. Resetting.');
+                setResponses({});
+                await window.puter.fs.writeFile(CHATS_FILE_PATH, JSON.stringify({})); // Overwrite corrupted file
+            }
+        } catch (parseError) {
+            console.error('Failed to parse chat file. Resetting.', parseError);
+            setFsError("Could not read chat history (file corrupted). Starting a new session.");
+            setResponses({});
+            await window.puter.fs.writeFile(CHATS_FILE_PATH, JSON.stringify({})); // Overwrite corrupted file
         }
+
     } catch (error: any) {
-        if (error.name === 'NotFoundError') {
-            console.log('Chat file not found. This might be the first run.');
-        } else {
-            console.error('Failed to load chats from Puter:', error);
-        }
+        console.error('Failed to setup or load chats from Puter:', error);
+        const errorMessage = error.message || 'An unknown error occurred';
+        setFsError(`Error accessing chat history: ${errorMessage}. New chats may not be saved.`);
     }
   }, []);
 
@@ -240,24 +250,21 @@ const ChatPage: React.FC = () => {
     checkSession();
   }, []);
 
-  // Effect to set up file system and load chats once signed in.
   useEffect(() => {
     if (isSignedIn) {
-      // First, ensure the directory and file exist, then load from it.
-      setupPuterFileSystem().then(() => {
-        loadChatsFromPuter();
-      });
+      setupAndLoadChats();
+    } else {
+      setResponses({});
+      setFsError(null);
     }
-  }, [isSignedIn, setupPuterFileSystem, loadChatsFromPuter]);
+  }, [isSignedIn, setupAndLoadChats]);
 
-  // Effect to save chats after all streams have finished.
   useEffect(() => {
     const wasLoading = Object.values(prevLoadingStatesRef.current).some(Boolean);
     const isNowLoading = Object.values(loadingStates).some(Boolean);
 
     prevLoadingStatesRef.current = loadingStates;
 
-    // Save when we transition from a loading state to a fully non-loading state.
     if (wasLoading && !isNowLoading) {
       if (isSignedIn && Object.values(responses).some(history => history.length > 0)) {
         saveChatsToPuter(responses);
@@ -270,11 +277,7 @@ const ChatPage: React.FC = () => {
     setIsLoggingIn(true);
     try {
       await loadPuterSDK();
-
-      // signIn() will open the popup. It rejects if the user cancels.
       await window.puter.auth.signIn();
-
-      // If we get here, sign-in was successful.
       const currentUser = await window.puter.auth.getUser();
       setUser(currentUser);
       setIsSignedIn(true);
@@ -282,7 +285,6 @@ const ChatPage: React.FC = () => {
 
     } catch (error: any) {
       console.error("Sign-in process failed:", error);
-      // Don't show an alert if the error message suggests the user cancelled.
       const errorMessage = (error?.message || '').toLowerCase();
       if (!errorMessage.includes('cancel') && !errorMessage.includes('closed')) {
          alert(`Login failed. This could be due to a popup blocker or a network issue. Please try again.\n\nDetails: ${error.message}`);
@@ -294,8 +296,6 @@ const ChatPage: React.FC = () => {
   
   const handleLogout = async () => {
     if (typeof window.puter?.auth?.signOut !== 'function') {
-        // If SDK is not available, we can't formally sign out,
-        // but we can clear the state locally for a good UX.
         setIsSignedIn(false);
         setUser(null);
         console.warn("Puter SDK not available for sign out. Cleared local session.");
@@ -305,7 +305,6 @@ const ChatPage: React.FC = () => {
        await window.puter.auth.signOut();
        setIsSignedIn(false);
        setUser(null);
-       setResponses({}); // Clear chats on logout
     } catch (error) {
       console.error("Sign-out process failed.", error);
       alert("Sign-out failed. Please try again.");
@@ -385,25 +384,22 @@ const ChatPage: React.FC = () => {
         return;
     }
 
-    let targetModels: ModelConfig[];
-
-    if (expandedModel) {
-      const singleModel = modelConfigs.find(m => m.name === expandedModel);
-      targetModels = singleModel ? [singleModel] : [];
-    } else {
-      targetModels = modelConfigs.filter(m => m.enabled && m.puterModel);
-    }
+    const targetModels = expandedModel
+      ? modelConfigs.filter(m => m.name === expandedModel && m.puterModel)
+      : modelConfigs.filter(m => m.enabled && m.puterModel);
 
     if (targetModels.length === 0) return;
 
-    setResponses(prev => {
-      const newResponses = { ...prev };
-      targetModels.forEach(model => {
-        const history = newResponses[model.name] || [];
-        newResponses[model.name] = [...history, { prompt, answer: '', sources: [] }];
-      });
-      return newResponses;
+    // Create the next state object.
+    const nextResponses = { ...responses };
+    targetModels.forEach(model => {
+      const history = nextResponses[model.name] || [];
+      nextResponses[model.name] = [...history, { prompt, answer: '', sources: [] }];
     });
+    
+    // Update state and save the user's prompt immediately.
+    setResponses(nextResponses);
+    saveChatsToPuter(nextResponses);
 
     const updatedLoadingStates: Record<string, boolean> = {};
     targetModels.forEach(model => {
@@ -510,6 +506,11 @@ const ChatPage: React.FC = () => {
             );
           })}
         </main>
+        {fsError && (
+          <div className="flex-shrink-0 p-2 text-center bg-red-900/50 text-red-300 text-sm border-t border-zinc-800">
+            {fsError}
+          </div>
+        )}
         <PromptInput onSend={handleSend} isLoading={isAnyModelLoading} isSignedIn={isSignedIn} />
       </div>
       {showLoginModal && (
