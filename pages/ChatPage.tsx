@@ -160,9 +160,7 @@ const ChatPage: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
-  const isLoadingRef = useRef(false);
   const responsesRef = useRef(responses);
-
   useEffect(() => {
     responsesRef.current = responses;
   }, [responses]);
@@ -359,6 +357,8 @@ const ChatPage: React.FC = () => {
       targetModels = modelConfigs.filter(m => m.enabled && m.puterModel);
     }
 
+    if (targetModels.length === 0) return;
+
     setResponses(prev => {
       const newResponses = { ...prev };
       targetModels.forEach(model => {
@@ -374,26 +374,19 @@ const ChatPage: React.FC = () => {
     });
     setLoadingStates(updatedLoadingStates);
 
-    targetModels.forEach(model => {
-        streamResponseForModel(prompt, model);
+    const streamingPromises = targetModels.map(model => streamResponseForModel(prompt, model));
+
+    Promise.all(streamingPromises).then(() => {
+        if (isSignedIn) {
+            const finalResponses = responsesRef.current;
+            if (Object.values(finalResponses).some(history => history.length > 0)) {
+                saveChatsToPuter(finalResponses);
+            }
+        }
     });
   };
 
   const isAnyModelLoading = Object.values(loadingStates).some(isLoading => isLoading);
-
-  // Effect to save chats after responses are done streaming
-  useEffect(() => {
-    // This condition checks for the moment when loading has just finished
-    if (isLoadingRef.current && !isAnyModelLoading && isSignedIn) {
-      const currentResponses = responsesRef.current;
-      if (Object.values(currentResponses).some(history => history.length > 0)) {
-        saveChatsToPuter(currentResponses);
-      }
-    }
-    // Track the current loading state for the next run
-    isLoadingRef.current = isAnyModelLoading;
-  }, [isAnyModelLoading, isSignedIn, saveChatsToPuter]);
-
 
   return (
     <div className="flex h-screen bg-[#212121] text-white font-sans overflow-hidden">
