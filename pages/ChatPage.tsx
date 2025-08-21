@@ -151,7 +151,7 @@ const ChatPage: React.FC = () => {
   const [expandedModel, setExpandedModel] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>(initialModels);
-  const [responses, setResponses] = useState<Record<string, Response>>({});
+  const [responses, setResponses] = useState<Record<string, Response[]>>({});
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
   
   const [isSignedIn, setIsSignedIn] = useState<boolean>(false);
@@ -163,7 +163,7 @@ const ChatPage: React.FC = () => {
   const isLoadingRef = useRef(false); // For triggering save after loading
   const CHATS_FILE_PATH = '/apps/ai-fiesta/chats/current_chat.json';
 
-  const saveChatsToPuter = useCallback(async (chats: Record<string, Response>) => {
+  const saveChatsToPuter = useCallback(async (chats: Record<string, Response[]>) => {
     if (!isSignedIn || typeof window.puter?.fs?.writeFile !== 'function') {
         return;
     }
@@ -264,6 +264,7 @@ const ChatPage: React.FC = () => {
        await window.puter.auth.signOut();
        setIsSignedIn(false);
        setUser(null);
+       setResponses({}); // Clear chats on logout
     } catch (error) {
       console.error("Sign-out process failed.", error);
       alert("Sign-out failed. Please try again.");
@@ -296,46 +297,41 @@ const ChatPage: React.FC = () => {
       });
 
       for await (const part of responseStream) {
-        if (part?.text) {
-          setResponses(prev => {
-            const currentResponse = prev[model.name] || { prompt, answer: '', sources: [] };
-            return {
-              ...prev,
-              [model.name]: {
-                ...currentResponse,
-                answer: currentResponse.answer + part.text,
-              },
-            };
-          });
-        }
-        if (part?.sources && Array.isArray(part.sources) && part.sources.length > 0) {
-          setResponses(prev => {
-            const currentResponse = prev[model.name] || { prompt, answer: '', sources: [] };
-            const formattedSources = part.sources.map((s: any) => ({
-              title: s.title || 'Source',
-              url: s.url || s.uri || '#',
-            }));
-            return {
-              ...prev,
-              [model.name]: {
-                ...currentResponse,
-                sources: (currentResponse.sources || []).concat(formattedSources),
-              },
-            };
-          });
-        }
+        setResponses(prev => {
+          const modelHistory = prev[model.name] ? [...prev[model.name]] : [];
+          if (modelHistory.length === 0) return prev;
+
+          const lastResponse = { ...modelHistory[modelHistory.length - 1] };
+
+          if (part?.text) {
+            lastResponse.answer += part.text;
+          }
+
+          if (part?.sources && Array.isArray(part.sources) && part.sources.length > 0) {
+            const formattedSources = part.sources
+              .filter((s: any) => s) // Ensure source object exists
+              .map((s: any) => ({
+                title: s.title || 'Source',
+                url: s.url || s.uri || '#',
+              }));
+            lastResponse.sources = (lastResponse.sources || []).concat(formattedSources);
+          }
+
+          modelHistory[modelHistory.length - 1] = lastResponse;
+          return { ...prev, [model.name]: modelHistory };
+        });
       }
     } catch (error) {
       console.error(`Error streaming from ${model.name}:`, error);
       setResponses(prev => {
-         const currentResponse = prev[model.name] || { prompt, answer: '' };
-         return {
-           ...prev,
-           [model.name]: {
-             ...currentResponse,
-             answer: currentResponse.answer + "\n\n[Error: Could not get response.]",
-           },
-         }
+         const modelHistory = prev[model.name] ? [...prev[model.name]] : [];
+         if (modelHistory.length === 0) return prev;
+
+         const lastResponse = { ...modelHistory[modelHistory.length - 1] };
+         lastResponse.answer += "\n\n[Error: Could not get response.]";
+         modelHistory[modelHistory.length - 1] = lastResponse;
+
+         return { ...prev, [model.name]: modelHistory };
       });
     } finally {
       setLoadingStates(prev => ({ ...prev, [model.name]: false }));
@@ -357,16 +353,20 @@ const ChatPage: React.FC = () => {
       targetModels = modelConfigs.filter(m => m.enabled && m.puterModel);
     }
 
-    const updatedResponses: Record<string, Response> = {};
-    const updatedLoadingStates: Record<string, boolean> = {};
-
-    targetModels.forEach(model => {
-        updatedResponses[model.name] = { prompt, answer: '', sources: [] };
-        updatedLoadingStates[model.name] = true;
+    setResponses(prev => {
+      const newResponses = { ...prev };
+      targetModels.forEach(model => {
+        const history = newResponses[model.name] || [];
+        newResponses[model.name] = [...history, { prompt, answer: '', sources: [] }];
+      });
+      return newResponses;
     });
 
-    setResponses(prev => ({...prev, ...updatedResponses}));
-    setLoadingStates(prev => ({...prev, ...updatedLoadingStates}));
+    const updatedLoadingStates: Record<string, boolean> = {};
+    targetModels.forEach(model => {
+      updatedLoadingStates[model.name] = true;
+    });
+    setLoadingStates(updatedLoadingStates);
 
     targetModels.forEach(model => {
         streamResponseForModel(prompt, model);
@@ -377,14 +377,11 @@ const ChatPage: React.FC = () => {
 
   // Effect to save chats after responses are done streaming
   useEffect(() => {
-    // If we were loading, but now we are not, it means streams just finished.
     if (isLoadingRef.current && !isAnyModelLoading && isSignedIn) {
-      // We check if responses is not empty to avoid saving on initial load.
-      if (Object.keys(responses).length > 0) {
+      if (Object.values(responses).some(history => history.length > 0)) {
         saveChatsToPuter(responses);
       }
     }
-    // Update the ref for the next render.
     isLoadingRef.current = isAnyModelLoading;
   }, [isAnyModelLoading, isSignedIn, responses, saveChatsToPuter]);
 
@@ -427,30 +424,34 @@ const ChatPage: React.FC = () => {
                   onToggleEnabled={() => handleToggleModelEnabled(model.name)}
                 />
                 <div className={`flex-1 overflow-y-auto ${isCollapsed ? 'hidden' : 'block'}`}>
-                  {responses[model.name] ? (
+                  {responses[model.name] && responses[model.name].length > 0 ? (
                     <div className="p-4 space-y-6 text-base">
-                      <div className="flex items-start gap-4">
-                        <UserIcon />
-                        <div className="flex-1 bg-black/30 rounded-lg p-3 text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed">
-                          {responses[model.name]?.prompt}
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-4">
-                        <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
-                          {model.icon}
-                        </div>
-                        <div className="flex-1 text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed">
-                          {model.name === 'Perplexity' ? (
-                            <ResponseWithCitations 
-                              text={responses[model.name]?.answer}
-                              sources={responses[model.name]?.sources}
-                            />
-                          ) : (
-                            renderWithMarkdown(responses[model.name]?.answer)
-                          )}
-                          {loadingStates[model.name] && <span className="inline-block w-2 h-4 bg-white ml-1 animate-pulse" />}
-                        </div>
-                      </div>
+                      {responses[model.name].map((exchange, index) => (
+                        <React.Fragment key={index}>
+                          <div className="flex items-start gap-4">
+                            <UserIcon />
+                            <div className="flex-1 bg-black/30 rounded-lg p-3 text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed">
+                              {exchange.prompt}
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-4">
+                            <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
+                              {model.icon}
+                            </div>
+                            <div className="flex-1 text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed">
+                              {model.name === 'Perplexity' ? (
+                                <ResponseWithCitations 
+                                  text={exchange.answer}
+                                  sources={exchange.sources}
+                                />
+                              ) : (
+                                renderWithMarkdown(exchange.answer)
+                              )}
+                              {loadingStates[model.name] && index === responses[model.name].length - 1 && <span className="inline-block w-2 h-4 bg-white ml-1 animate-pulse" />}
+                            </div>
+                          </div>
+                        </React.Fragment>
+                      ))}
                     </div>
                   ) : (
                     <div className="flex h-full items-center justify-center p-4">
