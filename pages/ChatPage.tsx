@@ -177,6 +177,27 @@ const ChatPage: React.FC = () => {
     }
   }, [isSignedIn]);
 
+  const setupPuterFileSystem = useCallback(async () => {
+    if (typeof window.puter?.fs?.mkdir !== 'function' || typeof window.puter?.fs?.exists !== 'function' || typeof window.puter.fs.writeFile !== 'function') {
+        console.warn('Puter FS not available for file system setup.');
+        return;
+    }
+    try {
+        const dirPath = CHATS_FILE_PATH.substring(0, CHATS_FILE_PATH.lastIndexOf('/'));
+        // Ensure directory exists
+        await window.puter.fs.mkdir(dirPath, { parents: true });
+        
+        // Ensure file exists
+        const fileExists = await window.puter.fs.exists(CHATS_FILE_PATH);
+        if (!fileExists) {
+            await window.puter.fs.writeFile(CHATS_FILE_PATH, JSON.stringify({}));
+            console.log('Initial chat file created.');
+        }
+    } catch (error) {
+        console.error('Failed to setup Puter file system:', error);
+    }
+  }, []);
+
   const loadChatsFromPuter = useCallback(async () => {
     if (typeof window.puter?.fs?.readFile !== 'function') {
         return;
@@ -187,10 +208,12 @@ const ChatPage: React.FC = () => {
         if (savedChats && typeof savedChats === 'object' && Object.keys(savedChats).length > 0) {
             setResponses(savedChats);
             console.log('Chats loaded successfully.');
+        } else {
+            console.log('No previous chats found in file, starting fresh.');
         }
     } catch (error: any) {
         if (error.name === 'NotFoundError') {
-            console.log('No saved chats found. Starting fresh.');
+            console.log('Chat file not found. This might be the first run.');
         } else {
             console.error('Failed to load chats from Puter:', error);
         }
@@ -217,12 +240,15 @@ const ChatPage: React.FC = () => {
     checkSession();
   }, []);
 
-  // Effect to load chats once signed in
+  // Effect to set up file system and load chats once signed in.
   useEffect(() => {
     if (isSignedIn) {
-      loadChatsFromPuter();
+      // First, ensure the directory and file exist, then load from it.
+      setupPuterFileSystem().then(() => {
+        loadChatsFromPuter();
+      });
     }
-  }, [isSignedIn, loadChatsFromPuter]);
+  }, [isSignedIn, setupPuterFileSystem, loadChatsFromPuter]);
 
   // Effect to save chats after all streams have finished.
   useEffect(() => {
