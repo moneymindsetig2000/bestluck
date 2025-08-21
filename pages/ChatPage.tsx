@@ -160,11 +160,7 @@ const ChatPage: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
-  const responsesRef = useRef(responses);
-  useEffect(() => {
-    responsesRef.current = responses;
-  }, [responses]);
-
+  const prevLoadingStatesRef = useRef<Record<string, boolean>>({});
   const CHATS_FILE_PATH = '/apps/ai-fiesta/chats/current_chat.json';
 
   const saveChatsToPuter = useCallback(async (chats: Record<string, Response[]>) => {
@@ -227,6 +223,21 @@ const ChatPage: React.FC = () => {
       loadChatsFromPuter();
     }
   }, [isSignedIn, loadChatsFromPuter]);
+
+  // Effect to save chats after all streams have finished.
+  useEffect(() => {
+    const wasLoading = Object.values(prevLoadingStatesRef.current).some(Boolean);
+    const isNowLoading = Object.values(loadingStates).some(Boolean);
+
+    prevLoadingStatesRef.current = loadingStates;
+
+    // Save when we transition from a loading state to a fully non-loading state.
+    if (wasLoading && !isNowLoading) {
+      if (isSignedIn && Object.values(responses).some(history => history.length > 0)) {
+        saveChatsToPuter(responses);
+      }
+    }
+  }, [loadingStates, isSignedIn, responses, saveChatsToPuter]);
 
 
   const handleLogin = async () => {
@@ -374,15 +385,8 @@ const ChatPage: React.FC = () => {
     });
     setLoadingStates(updatedLoadingStates);
 
-    const streamingPromises = targetModels.map(model => streamResponseForModel(prompt, model));
-
-    Promise.all(streamingPromises).then(() => {
-        if (isSignedIn) {
-            const finalResponses = responsesRef.current;
-            if (Object.values(finalResponses).some(history => history.length > 0)) {
-                saveChatsToPuter(finalResponses);
-            }
-        }
+    targetModels.forEach(model => {
+      streamResponseForModel(prompt, model);
     });
   };
 
