@@ -220,61 +220,6 @@ const ChatPage: React.FC = () => {
     }
   }, [responses, chatSessions]);
 
-  const setupAndLoadChats = useCallback(async (uid: string) => {
-    setDbError(null);
-    try {
-      await window.puter.fs.mkdir(CHATS_DIR, { createMissingParents: true });
-      const files = await window.puter.fs.readdir(CHATS_DIR);
-      const chatFiles = files.filter((f: any) => f.name.endsWith('.json'));
-
-      if (chatFiles.length === 0) {
-        setActiveChatId(null);
-        setResponses({});
-        setChatSessions([]);
-        return;
-      }
-      
-      const sessionsPromises = chatFiles.map(async (file: any) => {
-        try {
-          const blob = await window.puter.fs.read(`${CHATS_DIR}/${file.name}`);
-          const content = await blob.text();
-          if (!content) return null;
-          const data = JSON.parse(content);
-          return {
-            id: file.name.replace('.json', ''),
-            title: data.title,
-            createdAt: data.createdAt,
-            lastUpdatedAt: data.lastUpdatedAt,
-          };
-        } catch (e) {
-          console.error(`Failed to read or parse chat file ${file.name}`, e);
-          return null;
-        }
-      });
-  
-      let sessions = (await Promise.all(sessionsPromises)).filter(Boolean) as ChatSession[];
-      sessions.sort((a, b) => new Date(b.lastUpdatedAt).getTime() - new Date(a.lastUpdatedAt).getTime());
-      
-      setChatSessions(sessions);
-  
-      if (sessions.length > 0) {
-        const mostRecentId = sessions[0].id;
-        setActiveChatId(mostRecentId);
-        const blob = await window.puter.fs.read(`${CHATS_DIR}/${mostRecentId}.json`);
-        const content = await blob.text();
-        if (content) {
-          const chatData = JSON.parse(content) as ChatDocument;
-          setResponses(chatData.history || {});
-        } else {
-          setResponses({});
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load chat sessions from Puter:', error);
-      setDbError('Error loading chat history from Puter.');
-    }
-  }, []);
-
   const checkAuthState = useCallback(async () => {
     if (typeof window.puter?.auth?.getUser !== 'function') {
         setIsAuthChecking(false);
@@ -291,7 +236,6 @@ const ChatPage: React.FC = () => {
                 displayName: puterUser.name,
                 photoURL: puterUser.avatar,
             });
-            await setupAndLoadChats(puterUser.uid);
         } else {
             setUser(null);
             setResponses({});
@@ -304,7 +248,7 @@ const ChatPage: React.FC = () => {
     } finally {
         setIsAuthChecking(false);
     }
-  }, [setupAndLoadChats]);
+  }, []);
   
   useEffect(() => {
     loadPuterSDK().then(() => {
@@ -315,6 +259,73 @@ const ChatPage: React.FC = () => {
         setIsAuthChecking(false);
     });
   }, [checkAuthState]);
+
+  // Effect to load chat data when the user state is confirmed.
+  // This declarative approach prevents race conditions.
+  useEffect(() => {
+    const loadChats = async () => {
+      if (!user) {
+        return; // Only proceed if a user is logged in.
+      }
+
+      setDbError(null);
+      try {
+        await window.puter.fs.mkdir(CHATS_DIR, { createMissingParents: true });
+        const files = await window.puter.fs.readdir(CHATS_DIR);
+        const chatFiles = files.filter((f: any) => f.name.endsWith('.json'));
+
+        if (chatFiles.length === 0) {
+          setActiveChatId(null);
+          setResponses({});
+          setChatSessions([]);
+          return;
+        }
+        
+        const sessionsPromises = chatFiles.map(async (file: any) => {
+          try {
+            const blob = await window.puter.fs.read(`${CHATS_DIR}/${file.name}`);
+            const content = await blob.text();
+            if (!content) return null;
+            const data = JSON.parse(content);
+            return {
+              id: file.name.replace('.json', ''),
+              title: data.title,
+              createdAt: data.createdAt,
+              lastUpdatedAt: data.lastUpdatedAt,
+            };
+          } catch (e) {
+            console.error(`Failed to read or parse chat file ${file.name}`, e);
+            return null;
+          }
+        });
+    
+        let sessions = (await Promise.all(sessionsPromises)).filter(Boolean) as ChatSession[];
+        sessions.sort((a, b) => new Date(b.lastUpdatedAt).getTime() - new Date(a.lastUpdatedAt).getTime());
+        
+        setChatSessions(sessions);
+    
+        if (sessions.length > 0) {
+          const mostRecentId = sessions[0].id;
+          setActiveChatId(mostRecentId);
+          const blob = await window.puter.fs.read(`${CHATS_DIR}/${mostRecentId}.json`);
+          const content = await blob.text();
+          if (content) {
+            const chatData = JSON.parse(content) as ChatDocument;
+            setResponses(chatData.history || {});
+          } else {
+            setResponses({});
+          }
+        } else {
+          setActiveChatId(null);
+          setResponses({});
+        }
+      } catch (error) {
+        console.error('Failed to load chat sessions from Puter:', error);
+        setDbError('Error loading chat history from Puter.');
+      }
+    };
+    loadChats();
+  }, [user]);
 
   useEffect(() => {
     const wasLoading = Object.values(prevLoadingStatesRef.current).some(Boolean);
