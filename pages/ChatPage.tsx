@@ -148,50 +148,11 @@ const safePuterFs = {
   }
 };
 
-const APP_CHATS_DIR = '/apps/ai-fiesta-clone/chats';
-
-async function resolveChatsDirForUser(user: { uid?: string; uuid?: string; sub?: string }) {
-  const uid = user?.uid || user?.uuid || user?.sub;
-  const perUserDir = uid ? `/users/${uid}/ai-fiesta-clone/chats` : null;
-
-  // Try app-level dir first
-  try {
-    await safePuterFs.readdir(APP_CHATS_DIR);
-    // exists and readable
-    return APP_CHATS_DIR;
-  } catch (err: any) {
-    // If it doesn't exist, try to create it
-    if (err?.code === 'subject_does_not_exist' || err?.message?.includes('not found')) {
-      try {
-        await safePuterFs.mkdir(APP_CHATS_DIR, { createMissingParents: true });
-        return APP_CHATS_DIR;
-      } catch (mkdirErr: any) {
-        // If creation forbidden -> fall back to per-user
-        if (mkdirErr?.status === 403 || mkdirErr?.code === 'permission_denied' || mkdirErr?.code === 'forbidden') {
-          if (perUserDir) {
-            await safePuterFs.mkdir(perUserDir, { createMissingParents: true });
-            return perUserDir;
-          }
-          throw new Error('Cannot create app folder and no user id available for per-user fallback.');
-        }
-        // For other errors, bubble up
-        throw mkdirErr;
-      }
-    }
-
-    // If permission denied reading app dir -> fallback to per-user
-    if (err?.status === 403 || err?.code === 'permission_denied' || err?.code === 'forbidden') {
-      if (perUserDir) {
-        await safePuterFs.mkdir(perUserDir, { createMissingParents: true });
-        return perUserDir;
-      }
-      throw new Error('Permission denied for app folder and no user id available for per-user fallback.');
-    }
-
-    // Unknown error -> bubble up
-    throw err;
-  }
-}
+const getChatsDirForUser = (user: { uid?: string; uuid?: string; sub?: string } | null) => {
+  if (!user) return '/tmp/ai-fiesta-clone/chats'; // fallback when user absent
+  const uid = user.uuid || user.uid || user.sub;
+  return `/users/${uid}/ai-fiesta-clone/chats`;
+};
 
 interface User {
   uid: string;
@@ -416,26 +377,29 @@ const ChatPage: React.FC = () => {
     const loadChats = async () => {
       if (!user) {
         setChatsDir(null);
-        return; // Only proceed if a user is logged in.
+        return;
       }
-
+  
       setDbError(null);
       try {
-        const resolvedChatsDir = await resolveChatsDirForUser(user);
-        setChatsDir(resolvedChatsDir);
-        const files = await safePuterFs.readdir(resolvedChatsDir);
-        const chatFiles = files.filter((f: any) => f.name.endsWith('.json'));
-
+        const userChatsDir = getChatsDirForUser(user);
+        setChatsDir(userChatsDir);
+  
+        await safePuterFs.mkdir(userChatsDir, { createMissingParents: true });
+  
+        const files = await safePuterFs.readdir(userChatsDir);
+        const chatFiles = (Array.isArray(files) ? files : []).filter((f: any) => f && f.name && f.name.endsWith('.json'));
+  
         if (chatFiles.length === 0) {
           setActiveChatId(null);
           setResponses({});
           setChatSessions([]);
           return;
         }
-        
+  
         const sessionsPromises = chatFiles.map(async (file: any) => {
           try {
-            const blob = await safePuterFs.read(`${resolvedChatsDir}/${file.name}`);
+            const blob = await safePuterFs.read(`${userChatsDir}/${file.name}`);
             const content = await blob.text();
             if (!content) return null;
             const data = JSON.parse(content);
@@ -444,27 +408,31 @@ const ChatPage: React.FC = () => {
               title: data.title,
               createdAt: data.createdAt,
               lastUpdatedAt: data.lastUpdatedAt,
-            };
+            } as ChatSession;
           } catch (e) {
-            console.error(`Failed to read or parse chat file ${file.name}`, e);
+            console.error(`Failed to read/parse chat file ${file.name}`, e);
             return null;
           }
         });
-    
+  
         let sessions = (await Promise.all(sessionsPromises)).filter(Boolean) as ChatSession[];
         sessions.sort((a, b) => new Date(b.lastUpdatedAt).getTime() - new Date(a.lastUpdatedAt).getTime());
-        
         setChatSessions(sessions);
-    
+  
         if (sessions.length > 0) {
           const mostRecentId = sessions[0].id;
           setActiveChatId(mostRecentId);
-          const blob = await safePuterFs.read(`${resolvedChatsDir}/${mostRecentId}.json`);
-          const content = await blob.text();
-          if (content) {
-            const chatData = JSON.parse(content) as ChatDocument;
-            setResponses(chatData.history || {});
-          } else {
+          try {
+            const blob = await safePuterFs.read(`${userChatsDir}/${mostRecentId}.json`);
+            const content = await blob.text();
+            if (content) {
+              const chatData = JSON.parse(content) as ChatDocument;
+              setResponses(chatData.history || {});
+            } else {
+              setResponses({});
+            }
+          } catch (readErr) {
+            console.error(`Failed to read most recent chat (${mostRecentId}):`, readErr);
             setResponses({});
           }
         } else {
