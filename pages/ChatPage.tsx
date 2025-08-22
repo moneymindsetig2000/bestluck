@@ -68,6 +68,89 @@ const loadPuterSDK = (): Promise<void> => {
 
 const CHATS_DIR = '/apps/ai-fiesta-clone/chats';
 
+// ensureToken.ts - small helper to guarantee SDK token available
+async function ensurePuterToken() {
+  if (!window.puter || !window.puter.auth) {
+    throw new Error('Puter auth missing');
+  }
+  try {
+    // Some SDKs refresh/attach token when authToken() is invoked
+    if (typeof window.puter.auth.authToken === 'function') {
+      const t = await window.puter.auth.authToken();
+      // For debugging, you can log first 20 chars (redact in production)
+      console.debug('ensurePuterToken() token present?', !!t, 'token preview:', t?.slice?.(0,20));
+      return t;
+    }
+  } catch (e) {
+    console.warn('ensurePuterToken: authToken() threw', e);
+    // fallthrough to return undefined -> caller can handle
+  }
+  return undefined;
+}
+
+const safePuterFs = {
+  async mkdir(path: string, opts = { createMissingParents: true }) {
+    try {
+      await ensurePuterToken();
+      return await window.puter.fs.mkdir(path, opts);
+    } catch (err: any) {
+      // ignore "already exists" style errors
+      if (err?.code === 'subject_already_exists' || err?.code === 'subject_exists') return;
+      throw err;
+    }
+  },
+
+  async readdir(path: string) {
+    await ensurePuterToken();
+    try {
+      return await window.puter.fs.readdir(path);
+    } catch (err: any) {
+      // if folder doesn't exist -> create & return empty list
+      if (err?.code === 'subject_does_not_exist') {
+        await this.mkdir(path, { createMissingParents: true });
+        return [];
+      }
+      // on 401, try refresh token + retry once
+      if (err?.status === 401 || err?.code === 'unauthorized') {
+        try {
+          await ensurePuterToken();
+          return await window.puter.fs.readdir(path);
+        } catch(e) {
+          // fallthrough
+        }
+      }
+      throw err;
+    }
+  },
+
+  async read(path: string) {
+    await ensurePuterToken();
+    try {
+      return await window.puter.fs.read(path);
+    } catch (err: any) {
+      if (err?.status === 401) {
+        await ensurePuterToken();
+        return await window.puter.fs.read(path);
+      }
+      throw err;
+    }
+  },
+
+  async write(path: string, data: string, opts = { createMissingParents: true }) {
+    await ensurePuterToken();
+    try {
+      return await window.puter.fs.write(path, data, opts);
+    } catch (err: any) {
+      if (err?.status === 401) {
+        await ensurePuterToken();
+        return await window.puter.fs.write(path, data, opts);
+      }
+      throw err;
+    }
+  }
+};
+
+
 interface User {
   uid: string;
   displayName: string | null;
@@ -193,7 +276,7 @@ const ChatPage: React.FC = () => {
     const chatDocPath = `${CHATS_DIR}/${chatId}.json`;
     let createdAt = currentSession.createdAt;
     try {
-        const blob = await window.puter.fs.read(chatDocPath);
+        const blob = await safePuterFs.read(chatDocPath);
         const existingContent = await blob.text();
         if (existingContent) {
           const existingData = JSON.parse(existingContent);
@@ -212,7 +295,7 @@ const ChatPage: React.FC = () => {
     };
   
     try {
-      await window.puter.fs.write(chatDocPath, JSON.stringify(dataToSave, null, 2), { createMissingParents: true });
+      await safePuterFs.write(chatDocPath, JSON.stringify(dataToSave, null, 2), { createMissingParents: true });
       console.log(`Chat ${chatId} saved to Puter.`);
     } catch (error) {
       console.error("Save to Puter failed", error);
@@ -221,32 +304,57 @@ const ChatPage: React.FC = () => {
   }, [responses, chatSessions]);
 
   const checkAuthState = useCallback(async () => {
-    if (typeof window.puter?.auth?.getUser !== 'function') {
-        setIsAuthChecking(false);
-        console.error("Puter SDK auth module not available.");
-        setDbError("Authentication service failed to load. Please refresh.");
-        return;
-    }
     setIsAuthChecking(true);
     try {
+      // ensure SDK has token ready
+      await ensurePuterToken();
+  
+      // Try getUser once
+      try {
         const puterUser = await window.puter.auth.getUser();
         if (puterUser) {
-            setUser({
-                uid: puterUser.uid,
-                displayName: puterUser.name,
-                photoURL: puterUser.avatar,
-            });
+          setUser({
+            uid: puterUser.uuid || puterUser.uid || puterUser.sub,
+            displayName: puterUser.name || puterUser.username || null,
+            photoURL: puterUser.avatar || null,
+          });
         } else {
-            setUser(null);
-            setResponses({});
-            setChatSessions([]);
-            setActiveChatId(null);
+          setUser(null);
         }
-    } catch (error) {
-        console.error("Puter auth check failed:", error);
-        setDbError("Failed to check authentication status.");
-    } finally {
         setIsAuthChecking(false);
+        return;
+      } catch (firstErr: any) {
+        console.warn('First getUser() failed', firstErr?.status ?? firstErr?.code ?? firstErr);
+        // If 401, try a token refresh + single retry
+        if (firstErr?.status === 401 || firstErr?.code === 'unauthorized') {
+          try {
+            // force refresh token
+            await ensurePuterToken();
+            // small delay to let SDK settle
+            await new Promise(res => setTimeout(res, 300));
+            const puterUser = await window.puter.auth.getUser();
+            if (puterUser) {
+              setUser({
+                uid: puterUser.uuid || puterUser.uid || puterUser.sub,
+                displayName: puterUser.name || puterUser.username || null,
+                photoURL: puterUser.avatar || null,
+              });
+              setIsAuthChecking(false);
+              return;
+            }
+          } catch (retryErr) {
+            console.error('Second getUser() (retry) failed:', retryErr);
+          }
+        }
+        // non-recoverable: report and clear
+        setUser(null);
+        setDbError('Authentication check failed. See console for details.');
+      }
+    } catch (e) {
+      console.error('checkAuthState top-level error:', e);
+      setDbError('Authentication service failed to initialize.');
+    } finally {
+      setIsAuthChecking(false);
     }
   }, []);
   
@@ -270,8 +378,7 @@ const ChatPage: React.FC = () => {
 
       setDbError(null);
       try {
-        await window.puter.fs.mkdir(CHATS_DIR, { createMissingParents: true });
-        const files = await window.puter.fs.readdir(CHATS_DIR);
+        const files = await safePuterFs.readdir(CHATS_DIR);
         const chatFiles = files.filter((f: any) => f.name.endsWith('.json'));
 
         if (chatFiles.length === 0) {
@@ -283,7 +390,7 @@ const ChatPage: React.FC = () => {
         
         const sessionsPromises = chatFiles.map(async (file: any) => {
           try {
-            const blob = await window.puter.fs.read(`${CHATS_DIR}/${file.name}`);
+            const blob = await safePuterFs.read(`${CHATS_DIR}/${file.name}`);
             const content = await blob.text();
             if (!content) return null;
             const data = JSON.parse(content);
@@ -307,7 +414,7 @@ const ChatPage: React.FC = () => {
         if (sessions.length > 0) {
           const mostRecentId = sessions[0].id;
           setActiveChatId(mostRecentId);
-          const blob = await window.puter.fs.read(`${CHATS_DIR}/${mostRecentId}.json`);
+          const blob = await safePuterFs.read(`${CHATS_DIR}/${mostRecentId}.json`);
           const content = await blob.text();
           if (content) {
             const chatData = JSON.parse(content) as ChatDocument;
@@ -398,7 +505,7 @@ const ChatPage: React.FC = () => {
     if (chatId === activeChatId || !user) return;
     
     try {
-        const blob = await window.puter.fs.read(`${CHATS_DIR}/${chatId}.json`);
+        const blob = await safePuterFs.read(`${CHATS_DIR}/${chatId}.json`);
         const content = await blob.text();
         if (content) {
             const chatData = JSON.parse(content) as ChatDocument;
