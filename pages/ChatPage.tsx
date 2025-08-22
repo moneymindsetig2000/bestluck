@@ -180,17 +180,29 @@ const ChatPage: React.FC = () => {
 
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
-  const [chatsDir, setChatsDir] = useState<string | null>(null);
 
   const prevLoadingStatesRef = useRef<Record<string, boolean>>({});
   
-  const saveChat = useCallback(async (userId: string, chatId: string) => {
-    if (!userId || !chatId || !chatsDir) return;
+  const saveChat = useCallback(async (chatId: string) => {
+    if (!chatId) return;
   
+    const currentPuterUser = await window.puter.auth.getUser();
+    if (!currentPuterUser) {
+        console.error("Cannot save chat: user not authenticated.");
+        setDbError("Could not save chat. Your session may have expired.");
+        return;
+    }
+    
+    const userChatsDir = getChatsDirForUser(currentPuterUser);
+    if (!userChatsDir || userChatsDir.startsWith('/tmp')) {
+        console.error("Cannot save chat: could not determine user directory.");
+        return;
+    }
+
     const currentSession = chatSessions.find(s => s.id === chatId);
     if (!currentSession) return;
   
-    const chatDocPath = `${chatsDir}/${chatId}.json`;
+    const chatDocPath = `${userChatsDir}/${chatId}.json`;
     let createdAt = currentSession.createdAt;
     try {
         const blob = await safePuterFs.read(chatDocPath);
@@ -212,64 +224,33 @@ const ChatPage: React.FC = () => {
     };
   
     try {
-      await safePuterFs.write(chatDocPath, JSON.stringify(dataToSave, null, 2), { createMissingParents: true });
+      // Ensure directory exists before writing. `write` has `createMissingParents`, but an explicit `mkdir` is safer.
+      await safePuterFs.mkdir(userChatsDir, { createMissingParents: true });
+      await safePuterFs.write(chatDocPath, JSON.stringify(dataToSave, null, 2));
       console.log(`Chat ${chatId} saved to Puter.`);
     } catch (error) {
       console.error("Save to Puter failed", error);
       setDbError("Failed to save chat to Puter.");
     }
-  }, [responses, chatSessions, chatsDir]);
+  }, [responses, chatSessions]);
 
   const checkAuthState = useCallback(async () => {
     setIsAuthChecking(true);
     try {
-      // ensure SDK has token ready
       await ensurePuterToken();
-  
-      // Try getUser once
-      try {
-        const puterUser = await window.puter.auth.getUser();
-        if (puterUser) {
-          setUser({
-            uid: puterUser.uuid || puterUser.uid || puterUser.sub,
-            displayName: puterUser.name || puterUser.username || null,
-            photoURL: puterUser.avatar || null,
-          });
-        } else {
-          setUser(null);
-        }
-        setIsAuthChecking(false);
-        return;
-      } catch (firstErr: any) {
-        console.warn('First getUser() failed', firstErr?.status ?? firstErr?.code ?? firstErr);
-        // If 401, try a token refresh + single retry
-        if (firstErr?.status === 401 || firstErr?.code === 'unauthorized') {
-          try {
-            // force refresh token
-            await ensurePuterToken();
-            // small delay to let SDK settle
-            await new Promise(res => setTimeout(res, 300));
-            const puterUser = await window.puter.auth.getUser();
-            if (puterUser) {
-              setUser({
-                uid: puterUser.uuid || puterUser.uid || puterUser.sub,
-                displayName: puterUser.name || puterUser.username || null,
-                photoURL: puterUser.avatar || null,
-              });
-              setIsAuthChecking(false);
-              return;
-            }
-          } catch (retryErr) {
-            console.error('Second getUser() (retry) failed:', retryErr);
-          }
-        }
-        // non-recoverable: report and clear
+      const puterUser = await window.puter.auth.getUser();
+      if (puterUser) {
+        setUser({
+          uid: puterUser.uuid || puterUser.uid || puterUser.sub,
+          displayName: puterUser.name || puterUser.username || null,
+          photoURL: puterUser.avatar || null,
+        });
+      } else {
         setUser(null);
-        setDbError('Authentication check failed. See console for details.');
       }
-    } catch (e) {
-      console.error('checkAuthState top-level error:', e);
-      setDbError('Authentication service failed to initialize.');
+    } catch (error) {
+      console.error('checkAuthState failed:', error);
+      setUser(null);
     } finally {
       setIsAuthChecking(false);
     }
@@ -285,19 +266,29 @@ const ChatPage: React.FC = () => {
     });
   }, [checkAuthState]);
 
-  // Effect to load chat data when the user state is confirmed.
   useEffect(() => {
-    const loadChats = async () => {
+    const loadInitialData = async () => {
       if (!user) {
-        setChatsDir(null);
+        setChatSessions([]);
+        setActiveChatId(null);
+        setResponses({});
         return;
       }
   
       setDbError(null);
       try {
-        const userChatsDir = getChatsDirForUser(user);
-        setChatsDir(userChatsDir);
-  
+        const currentPuterUser = await window.puter.auth.getUser();
+        if (!currentPuterUser || !(currentPuterUser.uuid || currentPuterUser.uid || currentPuterUser.sub)) {
+          setUser(null); 
+          setDbError("User session expired. Please sign in again.");
+          return;
+        }
+
+        console.log('Authenticated Puter User for FS:', { uuid: currentPuterUser.uuid, uid: currentPuterUser.uid, sub: currentPuterUser.sub });
+        
+        const userChatsDir = getChatsDirForUser(currentPuterUser);
+        console.log('Resolved chats directory to access:', userChatsDir);
+        
         await safePuterFs.mkdir(userChatsDir, { createMissingParents: true });
   
         const files = await safePuterFs.readdir(userChatsDir);
@@ -352,12 +343,16 @@ const ChatPage: React.FC = () => {
           setActiveChatId(null);
           setResponses({});
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to load chat sessions from Puter:', error);
-        setDbError('Error loading chat history from Puter.');
+        if (error?.code === 'permission_denied' || error?.status === 403) {
+          setDbError("Permission denied. Could not access chat history. Please try signing out and in again.");
+        } else {
+          setDbError('Error loading chat history from Puter.');
+        }
       }
     };
-    loadChats();
+    loadInitialData();
   }, [user]);
 
   useEffect(() => {
@@ -365,16 +360,16 @@ const ChatPage: React.FC = () => {
     const isNowLoading = Object.values(loadingStates).some(Boolean);
     prevLoadingStatesRef.current = loadingStates;
 
-    if (wasLoading && !isNowLoading && user && activeChatId) {
-        saveChat(user.uid, activeChatId);
+    if (wasLoading && !isNowLoading && activeChatId) {
+        saveChat(activeChatId);
     }
-  }, [loadingStates, user, activeChatId, saveChat]);
+  }, [loadingStates, activeChatId, saveChat]);
 
   const handleLogin = async () => {
     setIsLoggingIn(true);
     try {
       await window.puter.auth.signIn();
-      await checkAuthState();
+      await checkAuthState(); // This will re-trigger the loadInitialData effect
       setShowLoginModal(false);
     } catch (error: any) {
       console.log("Puter sign-in process was not completed:", error.message);
@@ -428,10 +423,14 @@ const ChatPage: React.FC = () => {
   };
 
   const handleSelectChat = async (chatId: string) => {
-    if (chatId === activeChatId || !user || !chatsDir) return;
+    if (chatId === activeChatId || !user) return;
     
     try {
-        const blob = await safePuterFs.read(`${chatsDir}/${chatId}.json`);
+        const currentPuterUser = await window.puter.auth.getUser();
+        if (!currentPuterUser) throw new Error("User not authenticated");
+        const userChatsDir = getChatsDirForUser(currentPuterUser);
+
+        const blob = await safePuterFs.read(`${userChatsDir}/${chatId}.json`);
         const content = await blob.text();
         if (content) {
             const chatData = JSON.parse(content) as ChatDocument;
