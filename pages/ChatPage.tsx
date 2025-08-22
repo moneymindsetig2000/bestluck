@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from '../components/chat/Sidebar';
 import ChatHeader from '../components/chat/ChatHeader';
 import PromptInput from '../components/chat/PromptInput';
-import { ChatGptIcon, GeminiIcon, DeepSeekIcon, PerplexityIcon, ClaudeIcon } from '../components/chat/ModelIcons';
+import { ChatGptIcon, GeminiIcon, DeepSeekIcon, PerplexityIcon, ClaudeIcon, GrokIcon } from '../components/chat/ModelIcons';
 import ResponseWithCitations from '../components/chat/ResponseWithCitations';
 import { ensurePuterToken, safePuterFs, getChatsDirForUser } from '../lib/puterUtils';
 
@@ -112,6 +112,7 @@ const initialModels: ModelConfig[] = [
   { name: 'DeepSeek', icon: <DeepSeekIcon />, enabled: true, puterModel: 'openrouter:deepseek/deepseek-chat' },
   { name: 'Perplexity', icon: <PerplexityIcon />, enabled: true, puterModel: 'openrouter:perplexity/sonar-pro' },
   { name: 'Claude', icon: <ClaudeIcon />, enabled: true, puterModel: 'openrouter:anthropic/claude-3.7-sonnet' },
+  { name: 'Grok', icon: <GrokIcon />, enabled: true, puterModel: 'openrouter:x-ai/grok-3' },
 ];
 
 const UserIcon = () => (
