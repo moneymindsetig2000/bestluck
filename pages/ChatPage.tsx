@@ -574,7 +574,7 @@ const ChatPage: React.FC = () => {
             const isExpanded = expandedModel === model.name;
             const isCollapsed = expandedModel !== null && !isExpanded;
             
-            let widthClass = 'basis-[35%] flex-shrink-0';
+            let widthClass = 'basis-[30%] flex-shrink-0';
             if (isExpanded) {
               widthClass = 'flex-grow basis-1/2'; 
             } else if (isCollapsed) {
