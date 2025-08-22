@@ -35,9 +35,10 @@ interface SidebarProps {
   activeChatId: string | null;
   onSelectChat: (id: string) => void;
   onNewChat: () => void;
+  onInitiateDelete: (session: ChatSession) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, onLogout, onLogin, isAuthChecking, chatSessions, activeChatId, onSelectChat, onNewChat }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, onLogout, onLogin, isAuthChecking, chatSessions, activeChatId, onSelectChat, onNewChat, onInitiateDelete }) => {
   return (
     <aside className={`transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-[260px]'} bg-[#171717] p-2 flex flex-col h-screen border-r border-zinc-800`}>
       <div className={`flex items-center mb-4 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
@@ -63,17 +64,30 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, 
 
       <div className="flex-1 overflow-y-auto -mr-2 pr-2 space-y-1">
         {!isCollapsed && chatSessions.map(session => (
-          <button
-            key={session.id}
-            onClick={() => onSelectChat(session.id)}
-            className={`w-full text-left p-2 rounded-lg truncate text-sm transition-colors ${
-              activeChatId === session.id
-                ? 'bg-zinc-700 text-white'
-                : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
-            }`}
-          >
-            {session.title}
-          </button>
+          <div key={session.id} className="group relative">
+            <button
+              onClick={() => onSelectChat(session.id)}
+              className={`w-full text-left p-2 rounded-lg truncate text-sm transition-colors pr-8 ${
+                activeChatId === session.id
+                  ? 'bg-zinc-700 text-white'
+                  : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
+              }`}
+            >
+              {session.title}
+            </button>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                onInitiateDelete(session);
+              }}
+              className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-zinc-500 hover:text-red-400 hover:bg-zinc-700 opacity-0 group-hover:opacity-100 transition-opacity"
+              aria-label={`Delete chat: ${session.title}`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
         ))}
       </div>
 

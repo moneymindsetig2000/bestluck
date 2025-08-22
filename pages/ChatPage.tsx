@@ -181,6 +181,8 @@ const ChatPage: React.FC = () => {
 
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [chatToDelete, setChatToDelete] = useState<ChatSession | null>(null);
+
 
   const prevLoadingStatesRef = useRef<Record<string, boolean>>({});
   
@@ -447,6 +449,37 @@ const ChatPage: React.FC = () => {
     }
   };
 
+  const handleInitiateDelete = (session: ChatSession) => {
+    setChatToDelete(session);
+  };
+
+  const handleDeleteChatConfirm = async () => {
+    if (!chatToDelete || !user) return;
+
+    try {
+      const currentPuterUser = await window.puter.auth.getUser();
+      if (!currentPuterUser) throw new Error("User not authenticated for deletion");
+      
+      const userChatsDir = getChatsDirForUser(currentPuterUser);
+      const chatFilePath = `${userChatsDir}/${chatToDelete.id}.json`;
+
+      await safePuterFs.delete(chatFilePath);
+
+      setChatSessions(prev => prev.filter(s => s.id !== chatToDelete.id));
+
+      if (activeChatId === chatToDelete.id) {
+        setActiveChatId(null);
+        setResponses({});
+      }
+    } catch (error) {
+      console.error(`Failed to delete chat ${chatToDelete.id}:`, error);
+      setDbError("Failed to delete the chat. Please try again.");
+    } finally {
+      setChatToDelete(null); // Close the modal
+    }
+  };
+
+
   const streamResponseForModel = async (prompt: string, model: ModelConfig) => {
     if (!model.puterModel) return;
 
@@ -566,6 +599,7 @@ const ChatPage: React.FC = () => {
         activeChatId={activeChatId}
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
+        onInitiateDelete={handleInitiateDelete}
       />
       <div 
         className="flex flex-1 flex-col overflow-hidden"
@@ -656,6 +690,32 @@ const ChatPage: React.FC = () => {
         )}
         <PromptInput onSend={handleSend} isLoading={isAnyModelLoading} isSignedIn={!!user} />
       </div>
+
+      {chatToDelete && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-[#171717] p-8 rounded-2xl border border-zinc-800 text-center max-w-sm shadow-lg animate-fade-in relative">
+            <h2 className="text-xl font-bold text-white mb-2">Delete Chat?</h2>
+            <p className="text-zinc-400 mb-6">
+              Are you sure you want to delete the chat titled "{chatToDelete.title}"? This action cannot be undone.
+            </p>
+            <div className="flex justify-center gap-4">
+              <button
+                onClick={() => setChatToDelete(null)}
+                className="px-6 py-2 rounded-full bg-zinc-700 text-white font-semibold hover:bg-zinc-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteChatConfirm}
+                className="px-6 py-2 rounded-full bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {showLoginModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
             <LoginModal onLogin={handleLogin} isLoggingIn={isLoggingIn} onClose={() => setShowLoginModal(false)} />

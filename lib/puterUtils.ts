@@ -1,5 +1,6 @@
 
 
+
 declare global {
   interface Window {
     puter: any;
@@ -104,7 +105,28 @@ export const safePuterFs = {
       }
       throw err;
     }
-  }
+  },
+
+  async delete(path: string) {
+    await ensurePuterToken();
+    try {
+      return await window.puter.fs.delete(path);
+    } catch (err: any) {
+      // if it's a transient auth error (401 or 403), refresh token and retry once.
+      if (err?.status === 401 || err?.status === 403 || err?.code === 'unauthorized') {
+        console.warn(`delete received auth error (${err.status || err.code}), retrying...`);
+        await ensurePuterToken();
+        return await window.puter.fs.delete(path);
+      }
+      // If the file doesn't exist, we can consider the deletion successful for our purpose.
+      if (err?.code === 'subject_does_not_exist') {
+        console.warn(`Attempted to delete a non-existent file: ${path}. Ignoring.`);
+        return;
+      }
+      // For any other initial error, throw it.
+      throw err;
+    }
+  },
 };
 
 export const getChatsDirForUser = (user: { uid?: string; uuid?: string; sub?: string } | null) => {
