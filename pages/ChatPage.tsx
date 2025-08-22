@@ -66,8 +66,6 @@ const loadPuterSDK = (): Promise<void> => {
   return puterSDKPromise;
 };
 
-const CHATS_DIR = '/apps/ai-fiesta-clone/chats';
-
 // ensureToken.ts - small helper to guarantee SDK token available
 async function ensurePuterToken() {
   if (!window.puter || !window.puter.auth) {
@@ -150,6 +148,50 @@ const safePuterFs = {
   }
 };
 
+const APP_CHATS_DIR = '/apps/ai-fiesta-clone/chats';
+
+async function resolveChatsDirForUser(user: { uid?: string; uuid?: string; sub?: string }) {
+  const uid = user?.uid || user?.uuid || user?.sub;
+  const perUserDir = uid ? `/users/${uid}/ai-fiesta-clone/chats` : null;
+
+  // Try app-level dir first
+  try {
+    await safePuterFs.readdir(APP_CHATS_DIR);
+    // exists and readable
+    return APP_CHATS_DIR;
+  } catch (err: any) {
+    // If it doesn't exist, try to create it
+    if (err?.code === 'subject_does_not_exist' || err?.message?.includes('not found')) {
+      try {
+        await safePuterFs.mkdir(APP_CHATS_DIR, { createMissingParents: true });
+        return APP_CHATS_DIR;
+      } catch (mkdirErr: any) {
+        // If creation forbidden -> fall back to per-user
+        if (mkdirErr?.status === 403 || mkdirErr?.code === 'permission_denied' || mkdirErr?.code === 'forbidden') {
+          if (perUserDir) {
+            await safePuterFs.mkdir(perUserDir, { createMissingParents: true });
+            return perUserDir;
+          }
+          throw new Error('Cannot create app folder and no user id available for per-user fallback.');
+        }
+        // For other errors, bubble up
+        throw mkdirErr;
+      }
+    }
+
+    // If permission denied reading app dir -> fallback to per-user
+    if (err?.status === 403 || err?.code === 'permission_denied' || err?.code === 'forbidden') {
+      if (perUserDir) {
+        await safePuterFs.mkdir(perUserDir, { createMissingParents: true });
+        return perUserDir;
+      }
+      throw new Error('Permission denied for app folder and no user id available for per-user fallback.');
+    }
+
+    // Unknown error -> bubble up
+    throw err;
+  }
+}
 
 interface User {
   uid: string;
@@ -264,16 +306,17 @@ const ChatPage: React.FC = () => {
 
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [chatsDir, setChatsDir] = useState<string | null>(null);
 
   const prevLoadingStatesRef = useRef<Record<string, boolean>>({});
   
   const saveChat = useCallback(async (userId: string, chatId: string) => {
-    if (!userId || !chatId) return;
+    if (!userId || !chatId || !chatsDir) return;
   
     const currentSession = chatSessions.find(s => s.id === chatId);
     if (!currentSession) return;
   
-    const chatDocPath = `${CHATS_DIR}/${chatId}.json`;
+    const chatDocPath = `${chatsDir}/${chatId}.json`;
     let createdAt = currentSession.createdAt;
     try {
         const blob = await safePuterFs.read(chatDocPath);
@@ -301,7 +344,7 @@ const ChatPage: React.FC = () => {
       console.error("Save to Puter failed", error);
       setDbError("Failed to save chat to Puter.");
     }
-  }, [responses, chatSessions]);
+  }, [responses, chatSessions, chatsDir]);
 
   const checkAuthState = useCallback(async () => {
     setIsAuthChecking(true);
@@ -369,16 +412,18 @@ const ChatPage: React.FC = () => {
   }, [checkAuthState]);
 
   // Effect to load chat data when the user state is confirmed.
-  // This declarative approach prevents race conditions.
   useEffect(() => {
     const loadChats = async () => {
       if (!user) {
+        setChatsDir(null);
         return; // Only proceed if a user is logged in.
       }
 
       setDbError(null);
       try {
-        const files = await safePuterFs.readdir(CHATS_DIR);
+        const resolvedChatsDir = await resolveChatsDirForUser(user);
+        setChatsDir(resolvedChatsDir);
+        const files = await safePuterFs.readdir(resolvedChatsDir);
         const chatFiles = files.filter((f: any) => f.name.endsWith('.json'));
 
         if (chatFiles.length === 0) {
@@ -390,7 +435,7 @@ const ChatPage: React.FC = () => {
         
         const sessionsPromises = chatFiles.map(async (file: any) => {
           try {
-            const blob = await safePuterFs.read(`${CHATS_DIR}/${file.name}`);
+            const blob = await safePuterFs.read(`${resolvedChatsDir}/${file.name}`);
             const content = await blob.text();
             if (!content) return null;
             const data = JSON.parse(content);
@@ -414,7 +459,7 @@ const ChatPage: React.FC = () => {
         if (sessions.length > 0) {
           const mostRecentId = sessions[0].id;
           setActiveChatId(mostRecentId);
-          const blob = await safePuterFs.read(`${CHATS_DIR}/${mostRecentId}.json`);
+          const blob = await safePuterFs.read(`${resolvedChatsDir}/${mostRecentId}.json`);
           const content = await blob.text();
           if (content) {
             const chatData = JSON.parse(content) as ChatDocument;
@@ -502,10 +547,10 @@ const ChatPage: React.FC = () => {
   };
 
   const handleSelectChat = async (chatId: string) => {
-    if (chatId === activeChatId || !user) return;
+    if (chatId === activeChatId || !user || !chatsDir) return;
     
     try {
-        const blob = await safePuterFs.read(`${CHATS_DIR}/${chatId}.json`);
+        const blob = await safePuterFs.read(`${chatsDir}/${chatId}.json`);
         const content = await blob.text();
         if (content) {
             const chatData = JSON.parse(content) as ChatDocument;
