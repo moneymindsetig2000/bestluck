@@ -19,22 +19,31 @@ const Logo = () => (
   </div>
 );
 
+interface ChatSession {
+  id: string;
+  title: string;
+}
+
 interface SidebarProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
-  user: { name: string; avatar: string; } | null;
+  user: { displayName: string | null; photoURL: string | null; } | null;
   onLogout: () => void;
   onLogin: () => void;
   isAuthChecking: boolean;
+  chatSessions: ChatSession[];
+  activeChatId: string | null;
+  onSelectChat: (id: string) => void;
+  onNewChat: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, onLogout, onLogin, isAuthChecking }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, onLogout, onLogin, isAuthChecking, chatSessions, activeChatId, onSelectChat, onNewChat }) => {
   return (
     <aside className={`transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-[260px]'} bg-[#171717] p-2 flex flex-col h-screen border-r border-zinc-800`}>
       <div className={`flex items-center mb-4 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
         <Logo />
         {!isCollapsed && 
-          <button className="w-10 h-10 bg-[#272727] rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-700 hover:text-white transition-colors" aria-label="New Chat">
+          <button onClick={onNewChat} className="w-10 h-10 bg-[#272727] rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-700 hover:text-white transition-colors" aria-label="New Chat">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
@@ -44,7 +53,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, 
 
       {isCollapsed && 
         <div className="flex justify-center mb-4">
-            <button className="w-10 h-10 bg-[#272727] rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-700 hover:text-white transition-colors" aria-label="New Chat">
+            <button onClick={onNewChat} className="w-10 h-10 bg-[#272727] rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-700 hover:text-white transition-colors" aria-label="New Chat">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
@@ -52,8 +61,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, 
         </div>
       }
 
-      <div className="flex-1 overflow-y-auto -mr-2 pr-2">
-        {/* Chat history list will be populated here */}
+      <div className="flex-1 overflow-y-auto -mr-2 pr-2 space-y-1">
+        {!isCollapsed && chatSessions.map(session => (
+          <button
+            key={session.id}
+            onClick={() => onSelectChat(session.id)}
+            className={`w-full text-left p-2 rounded-lg truncate text-sm transition-colors ${
+              activeChatId === session.id
+                ? 'bg-zinc-700 text-white'
+                : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
+            }`}
+          >
+            {session.title}
+          </button>
+        ))}
       </div>
 
       <div className="mt-auto space-y-1">
@@ -79,9 +100,9 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, 
           ) : user ? (
             <>
               <div className={`flex items-center w-full p-2 rounded-lg text-gray-300 ${isCollapsed ? 'justify-center' : ''}`}>
-                <img src={user.avatar} alt={user.name} className="h-6 w-6 flex-shrink-0 rounded-full" />
+                <img src={user.photoURL || undefined} alt={user.displayName || 'User'} className="h-6 w-6 flex-shrink-0 rounded-full" />
                 <span className={`whitespace-nowrap overflow-hidden transition-all ${isCollapsed ? 'w-0' : 'w-auto ml-3'}`}>
-                  {!isCollapsed && user.name}
+                  {!isCollapsed && (user.displayName || 'Anonymous')}
                 </span>
               </div>
               <button onClick={onLogout} className={`flex items-center w-full p-2 rounded-lg text-gray-300 hover:bg-[#272727] ${isCollapsed ? 'justify-center' : ''}`} aria-label="Sign Out">
@@ -101,14 +122,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, 
                 </span>
               </button>
           )}
-         <button className={`flex items-center w-full p-2 rounded-lg text-gray-300 hover:bg-[#272727] ${isCollapsed ? 'justify-center' : ''}`}>
-             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.532 1.532 0 012.287-.947c1.372.836 2.942-.734-2.106-2.106a1.532 1.532 0 01-.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+         <button className={`flex items-center w-full p-2 rounded-lg text-gray-300 hover:bg-[#272727] ${isCollapsed ? 'justify-center' : ''}`} aria-label="Help & Settings">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             <span className={`whitespace-nowrap overflow-hidden transition-all ${isCollapsed ? 'w-0' : 'w-auto ml-3'}`}>
-                {isCollapsed ? '' : 'Settings'}
+              {!isCollapsed && 'Help & Settings'}
             </span>
-         </button>
+          </button>
       </div>
     </aside>
   );
