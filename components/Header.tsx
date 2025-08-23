@@ -2,20 +2,11 @@ import React, { useState, useEffect } from 'react';
 
 const Logo = () => (
   <a href="#" className="flex items-center gap-4 z-10">
-    <svg width="40" height="40" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="14" cy="14" rx="12" ry="5" transform="rotate(45 14 14)" stroke="url(#g1)" strokeWidth="2.5"/>
-      <ellipse cx="14" cy="14" rx="12" ry="5" transform="rotate(-45 14 14)" stroke="url(#g2)" strokeWidth="2.5"/>
-      <defs>
-        <linearGradient id="g1" x1="2" y1="14" x2="26" y2="14" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#67E8F9"/>
-          <stop offset="1" stopColor="#0891B2"/>
-        </linearGradient>
-        <linearGradient id="g2" x1="2" y1="14" x2="26" y2="14" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#34D399"/>
-          <stop offset="1" stopColor="#059669"/>
-        </linearGradient>
-      </defs>
-    </svg>
+    <img 
+      src="/components/PHOTO-2025-08-20-23-29-49.jpg" 
+      alt="AI Fiesta Logo" 
+      className="w-10 h-10 object-cover rounded-full" 
+    />
     <span className="text-2xl font-bold text-white tracking-wide">AI Fiesta</span>
   </a>
 );

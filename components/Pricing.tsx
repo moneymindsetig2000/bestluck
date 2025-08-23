@@ -196,7 +196,21 @@ const Pricing: React.FC<PricingProps> = ({ onLogin }) => {
                          <div className="relative bg-[#1a1a1a]/50 border border-green-400/30 rounded-3xl p-8 shadow-2xl shadow-green-500/10">
                             <div className="absolute -inset-px bg-gradient-to-br from-green-400/50 to-teal-600/50 rounded-3xl blur-xl opacity-30 -z-10"></div>
                             <div className="flex items-center gap-3">
-                                <svg width="32" height="32" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg"><ellipse cx="14" cy="14" rx="12" ry="5" transform="rotate(45 14 14)" stroke="url(#g1)" strokeWidth="2.5"/><ellipse cx="14" cy="14" rx="12" ry="5" transform="rotate(-45 14 14)" stroke="url(#g2)" strokeWidth="2.5"/><defs><linearGradient id="g1" x1="2" y1="14" x2="26" y2="14" gradientUnits="userSpaceOnUse"><stop stopColor="#67E8F9"/><stop offset="1" stopColor="#0891B2"/></linearGradient><linearGradient id="g2" x1="2" y1="14" x2="26" y2="14" gradientUnits="userSpaceOnUse"><stop stopColor="#34D399"/><stop offset="1" stopColor="#059669"/></linearGradient></defs></svg>
+                                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                  <defs>
+                                    <linearGradient id="planet-grad-pricing" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+                                      <stop stopColor="#38D6E5" />
+                                      <stop offset="1" stopColor="#F99B2C" />
+                                    </linearGradient>
+                                    <linearGradient id="ring-grad-pricing" x1="0" y1="16" x2="32" y2="16" gradientUnits="userSpaceOnUse">
+                                      <stop stopColor="#38B6E5" />
+                                      <stop offset="1" stopColor="#F9A22C" />
+                                    </linearGradient>
+                                  </defs>
+                                  <path d="M4.5 14.5 A 15 8 -25 0 1 27.5 17.5" stroke="url(#ring-grad-pricing)" strokeWidth="3.5" strokeLinecap="round" />
+                                  <circle cx="16" cy="16" r="10" fill="url(#planet-grad-pricing)" />
+                                  <path d="M4.5 14.5 A 15 8 -25 0 0 27.5 17.5" stroke="url(#ring-grad-pricing)" strokeWidth="3.5" strokeLinecap="round" />
+                                </svg>
                                 <h3 className="text-2xl font-bold text-white">AI Fiesta</h3>
                             </div>
 
@@ -225,7 +239,7 @@ const Pricing: React.FC<PricingProps> = ({ onLogin }) => {
                             </div>
                             
                             <div className="text-center bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold text-sm py-3 px-4 rounded-lg mt-6 flex items-center justify-center gap-2">
-                                <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M5.25 3.25A2.25 2.25 0 003 5.5v1.854a.75.75 0 001.5 0V5.5a.75.75 0 01.75-.75h1.854a.75.75 0 000-1.5H5.25zM15.5 3.25a.75.75 0 01.75.75v1.854a.75.75 0 01-1.5 0V5.5a.75.75 0 00-.75-.75h-1.854a.75.75 0 010-1.5h1.854A2.25 2.25 0 0115.5 3.25zM3.25 15.5A2.25 2.25 0 005.5 17h1.854a.75.75 0 000-1.5H5.5a.75.75 0 01-.75-.75v-1.854a.75.75 0 00-1.5 0V15.5zM17 14.75a.75.75 0 01-.75.75h-1.854a.75.75 0 010-1.5h1.854a.75.75 0 00.75-.75v-1.854a.75.75 0 011.5 0v1.854A2.25 2.25 0 0117 14.75zM10 5a1 1 0 011 1v1.768l1.621-1.622a.75.75 0 111.06 1.06l-1.621 1.622H15a1 1 0 110 2h-1.768l1.622 1.621a.75.75 0 11-1.06 1.06L12 11.06V13a1 1 0 11-2 0v-1.94l-1.621 1.621a.75.75 0 11-1.06-1.06L8.94 10H7a1 1 0 110-2h1.94l-1.622-1.621a.75.75 0 011.06-1.06L10 8.94V6a1 1 0 011-1z"/></svg>
+                                <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M5.25 3.25A2.25 2.25 0 003 5.5v1.854a.75.75 0 001.5 0V5.5a.75.75 0 01.75-.75h1.854a.75.75 0 010-1.5H5.25zM15.5 3.25a.75.75 0 01.75.75v1.854a.75.75 0 01-1.5 0V5.5a.75.75 0 00-.75-.75h-1.854a.75.75 0 010-1.5h1.854A2.25 2.25 0 0115.5 3.25zM3.25 15.5A2.25 2.25 0 005.5 17h1.854a.75.75 0 000-1.5H5.5a.75.75 0 01-.75-.75v-1.854a.75.75 0 00-1.5 0V15.5zM17 14.75a.75.75 0 01-.75.75h-1.854a.75.75 0 010-1.5h1.854a.75.75 0 00.75-.75v-1.854a.75.75 0 011.5 0v1.854A2.25 2.25 0 0117 14.75zM10 5a1 1 0 011 1v1.768l1.621-1.622a.75.75 0 111.06 1.06l-1.621 1.622H15a1 1 0 110 2h-1.768l1.622 1.621a.75.75 0 11-1.06 1.06L12 11.06V13a1 1 0 11-2 0v-1.94l-1.621 1.621a.75.75 0 11-1.06-1.06L8.94 10H7a1 1 0 110-2h1.94l-1.622-1.621a.75.75 0 011.06-1.06L10 8.94V6a1 1 0 011-1z"/></svg>
                                 ULTIMATE PROMPTBOOK & COMMUNITY ACCESS
                             </div>
 

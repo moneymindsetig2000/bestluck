@@ -35,13 +35,20 @@ const Showcase: React.FC<ShowcaseProps> = ({ onLogin }) => {
                                 {/* Header */}
                                 <div className="flex justify-between items-center px-2 sm:px-4 py-2">
                                     <div className="flex items-center gap-3">
-                                        <svg width="24" height="24" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <ellipse cx="14" cy="14" rx="12" ry="5" transform="rotate(45 14 14)" stroke="url(#g1_showcase_video)" strokeWidth="2"/>
-                                            <ellipse cx="14" cy="14" rx="12" ry="5" transform="rotate(-45 14 14)" stroke="url(#g2_showcase_video)" strokeWidth="2"/>
+                                        <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                                             <defs>
-                                                <linearGradient id="g1_showcase_video" x1="2" y1="14" x2="26" y2="14" gradientUnits="userSpaceOnUse"><stop stopColor="#67E8F9"/><stop offset="1" stopColor="#0891B2"/></linearGradient>
-                                                <linearGradient id="g2_showcase_video" x1="2" y1="14" x2="26" y2="14" gradientUnits="userSpaceOnUse"><stop stopColor="#34D399"/><stop offset="1" stopColor="#059669"/></linearGradient>
+                                              <linearGradient id="planet-grad-showcase-video" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+                                                <stop stopColor="#38D6E5" />
+                                                <stop offset="1" stopColor="#F99B2C" />
+                                              </linearGradient>
+                                              <linearGradient id="ring-grad-showcase-video" x1="0" y1="16" x2="32" y2="16" gradientUnits="userSpaceOnUse">
+                                                <stop stopColor="#38B6E5" />
+                                                <stop offset="1" stopColor="#F9A22C" />
+                                              </linearGradient>
                                             </defs>
+                                            <path d="M4.5 14.5 A 15 8 -25 0 1 27.5 17.5" stroke="url(#ring-grad-showcase-video)" strokeWidth="3.5" strokeLinecap="round" />
+                                            <circle cx="16" cy="16" r="10" fill="url(#planet-grad-showcase-video)" />
+                                            <path d="M4.5 14.5 A 15 8 -25 0 0 27.5 17.5" stroke="url(#ring-grad-showcase-video)" strokeWidth="3.5" strokeLinecap="round" />
                                         </svg>
                                         <p className="text-white font-medium text-sm sm:text-base hidden sm:block">
                                             Watch AI Fiesta Catch What ChatGPT, Gemini, Claude, Perplexity, Deep...
