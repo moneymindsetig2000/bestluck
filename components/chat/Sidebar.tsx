@@ -33,7 +33,6 @@ interface SidebarProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
   user: User;
-  onLogout: () => void;
   chatSessions: ChatSession[];
   activeChatId: string | null;
   onSelectChat: (id: string) => void;
@@ -42,7 +41,7 @@ interface SidebarProps {
   onHelpClick: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, onLogout, chatSessions, activeChatId, onSelectChat, onNewChat, onInitiateDelete, onHelpClick }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, chatSessions, activeChatId, onSelectChat, onNewChat, onInitiateDelete, onHelpClick }) => {
   return (
     <aside className={`transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20' : 'w-[260px]'} bg-[#171717] p-2 flex flex-col h-screen border-r border-zinc-800`}>
       <div className={`flex items-center mb-4 ${isCollapsed ? 'justify-center' : 'justify-between'}`}>
@@ -112,14 +111,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, 
             {!isCollapsed && (user.displayName || 'Anonymous')}
           </span>
         </div>
-        <button onClick={onLogout} className={`flex items-center w-full p-2 rounded-lg text-gray-300 hover:bg-[#272727] ${isCollapsed ? 'justify-center' : ''}`} aria-label="Sign Out">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clipRule="evenodd" />
-          </svg>
-          <span className={`whitespace-nowrap overflow-hidden transition-all ${isCollapsed ? 'w-0' : 'w-auto ml-3'}`}>
-            {!isCollapsed && 'Sign Out'}
-          </span>
-        </button>
          
          <button onClick={onHelpClick} className={`flex items-center w-full p-2 rounded-lg text-gray-300 hover:bg-[#272727] ${isCollapsed ? 'justify-center' : ''}`} aria-label="Help & Settings">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -435,7 +435,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
         isCollapsed={isSidebarCollapsed} 
         onToggleCollapse={() => setIsSidebarCollapsed(p => !p)} 
         user={user}
-        onLogout={onLogout}
         chatSessions={chatSessions}
         activeChatId={activeChatId}
         onNewChat={handleNewChat}
@@ -631,8 +630,30 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
               {activeSettingTab === 'account' && (
                 <div>
                   <h3 className="text-2xl font-bold text-white mb-6">Account Details</h3>
-                  <div className="bg-[#27272a] border border-zinc-700 rounded-xl p-6">
-                    <p className="text-zinc-400">Account settings and user information will appear here.</p>
+                  <div className="bg-[#27272a] border border-zinc-700 rounded-xl p-6 space-y-4">
+                      <div className="flex items-center gap-4">
+                          <img src={user.photoURL || undefined} alt={user.displayName || 'User'} className="h-16 w-16 rounded-full" />
+                          <div>
+                              <p className="text-lg font-semibold text-white">{user.displayName || 'Anonymous User'}</p>
+                              <p className="text-sm text-zinc-400">UID: {user.uid}</p>
+                          </div>
+                      </div>
+                  </div>
+                  
+                  <div className="mt-6">
+                      <h4 className="text-lg font-semibold text-red-400 mb-2">Danger Zone</h4>
+                      <div className="bg-[#27272a] border border-zinc-700 rounded-xl p-4 flex justify-between items-center">
+                          <div>
+                              <p className="font-medium text-white">Sign Out</p>
+                              <p className="text-sm text-zinc-400">You will be returned to the login screen.</p>
+                          </div>
+                          <button 
+                            onClick={onLogout} 
+                            className="bg-red-600/20 text-red-400 border border-red-500/50 px-4 py-2 rounded-lg font-semibold hover:bg-red-600/30 transition-colors"
+                          >
+                            Sign Out
+                          </button>
+                      </div>
                   </div>
                 </div>
               )}
