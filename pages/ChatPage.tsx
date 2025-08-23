@@ -629,31 +629,34 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
               )}
               {activeSettingTab === 'account' && (
                 <div>
-                  <h3 className="text-2xl font-bold text-white mb-6">Account Details</h3>
-                  <div className="bg-[#27272a] border border-zinc-700 rounded-xl p-6 space-y-4">
-                      <div className="flex items-center gap-4">
-                          <img src={user.photoURL || undefined} alt={user.displayName || 'User'} className="h-16 w-16 rounded-full" />
-                          <div>
-                              <p className="text-lg font-semibold text-white">{user.displayName || 'Anonymous User'}</p>
-                              <p className="text-sm text-zinc-400">UID: {user.uid}</p>
-                          </div>
-                      </div>
+                  <h3 className="text-2xl font-bold text-white mb-8">Account Details</h3>
+                  
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 flex items-center gap-5">
+                    <img 
+                      src={user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'A')}&background=27272a&color=fff&size=64&bold=true`}
+                      alt={user.displayName || 'User Avatar'} 
+                      className="h-16 w-16 rounded-full flex-shrink-0" 
+                    />
+                    <div className="flex-1 overflow-hidden">
+                      <p className="text-xl font-bold text-white truncate">{user.displayName || 'Anonymous User'}</p>
+                      <p className="text-sm text-zinc-400 font-mono mt-1 truncate">UID: {user.uid}</p>
+                    </div>
                   </div>
                   
-                  <div className="mt-6">
-                      <h4 className="text-lg font-semibold text-red-400 mb-2">Danger Zone</h4>
-                      <div className="bg-[#27272a] border border-zinc-700 rounded-xl p-4 flex justify-between items-center">
-                          <div>
-                              <p className="font-medium text-white">Sign Out</p>
-                              <p className="text-sm text-zinc-400">You will be returned to the login screen.</p>
-                          </div>
-                          <button 
-                            onClick={onLogout} 
-                            className="bg-red-600/20 text-red-400 border border-red-500/50 px-4 py-2 rounded-lg font-semibold hover:bg-red-600/30 transition-colors"
-                          >
-                            Sign Out
-                          </button>
+                  <div className="mt-10">
+                    <h4 className="text-lg font-semibold text-red-500 mb-3">Danger Zone</h4>
+                    <div className="bg-zinc-900 border border-red-500/40 rounded-xl p-5 flex justify-between items-center">
+                      <div>
+                        <p className="font-bold text-white text-base">Sign Out</p>
+                        <p className="text-sm text-zinc-400 mt-1">You will be returned to the login screen.</p>
                       </div>
+                      <button 
+                        onClick={onLogout} 
+                        className="bg-transparent text-red-400 border border-red-600 px-5 py-2 rounded-lg font-semibold hover:bg-red-600/10 transition-colors"
+                      >
+                        Sign Out
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
