@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import FadeInSection from './FadeInSection';
+import Logo from './Logo';
 
 // Icons
 const CheckIcon = ({ className = '' }: { className?: string }) => (
@@ -196,21 +197,7 @@ const Pricing: React.FC<PricingProps> = ({ onLogin }) => {
                          <div className="relative bg-[#1a1a1a]/50 border border-green-400/30 rounded-3xl p-8 shadow-2xl shadow-green-500/10">
                             <div className="absolute -inset-px bg-gradient-to-br from-green-400/50 to-teal-600/50 rounded-3xl blur-xl opacity-30 -z-10"></div>
                             <div className="flex items-center gap-3">
-                                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                  <defs>
-                                    <linearGradient id="planet-grad-pricing" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-                                      <stop stopColor="#38D6E5" />
-                                      <stop offset="1" stopColor="#F99B2C" />
-                                    </linearGradient>
-                                    <linearGradient id="ring-grad-pricing" x1="0" y1="16" x2="32" y2="16" gradientUnits="userSpaceOnUse">
-                                      <stop stopColor="#38B6E5" />
-                                      <stop offset="1" stopColor="#F9A22C" />
-                                    </linearGradient>
-                                  </defs>
-                                  <path d="M4.5 14.5 A 15 8 -25 0 1 27.5 17.5" stroke="url(#ring-grad-pricing)" strokeWidth="3.5" strokeLinecap="round" />
-                                  <circle cx="16" cy="16" r="10" fill="url(#planet-grad-pricing)" />
-                                  <path d="M4.5 14.5 A 15 8 -25 0 0 27.5 17.5" stroke="url(#ring-grad-pricing)" strokeWidth="3.5" strokeLinecap="round" />
-                                </svg>
+                                <Logo />
                                 <h3 className="text-2xl font-bold text-white">AI Fiesta</h3>
                             </div>
 

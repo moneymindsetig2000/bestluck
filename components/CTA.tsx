@@ -1,5 +1,6 @@
 import React from 'react';
 import FadeInSection from './FadeInSection';
+import Logo from './Logo';
 
 const ArrowIcon = () => (
   <svg
@@ -14,23 +15,9 @@ const ArrowIcon = () => (
   </svg>
 );
 
-const Logo = () => (
+const CTALogo = () => (
     <div className="flex items-center gap-4 z-10">
-      <svg width="40" height="40" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="planet-grad-cta" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#38D6E5" />
-            <stop offset="1" stopColor="#F99B2C" />
-          </linearGradient>
-          <linearGradient id="ring-grad-cta" x1="0" y1="16" x2="32" y2="16" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#38B6E5" />
-            <stop offset="1" stopColor="#F9A22C" />
-          </linearGradient>
-        </defs>
-        <path d="M4.5 14.5 A 15 8 -25 0 1 27.5 17.5" stroke="url(#ring-grad-cta)" strokeWidth="3.5" strokeLinecap="round" />
-        <circle cx="16" cy="16" r="10" fill="url(#planet-grad-cta)" />
-        <path d="M4.5 14.5 A 15 8 -25 0 0 27.5 17.5" stroke="url(#ring-grad-cta)" strokeWidth="3.5" strokeLinecap="round" />
-      </svg>
+      <Logo width={40} height={40} />
       <span className="text-2xl font-bold text-white tracking-wide">AI Fiesta</span>
     </div>
   );
@@ -81,7 +68,7 @@ const CTA: React.FC<CTAProps> = ({ onButtonHoverChange, isHovered, onLogin }) =>
               </button>
             </div>
             <div className="mt-28">
-              <Logo />
+              <CTALogo />
             </div>
           </div>
         </FadeInSection>
