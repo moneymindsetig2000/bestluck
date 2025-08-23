@@ -182,6 +182,7 @@ const ChatPage: React.FC = () => {
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [chatToDelete, setChatToDelete] = useState<ChatSession | null>(null);
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
 
   const prevLoadingStatesRef = useRef<Record<string, boolean>>({});
@@ -600,6 +601,7 @@ const ChatPage: React.FC = () => {
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}
         onInitiateDelete={handleInitiateDelete}
+        onHelpClick={() => setShowHelpModal(true)}
       />
       <div 
         className="flex flex-1 flex-col overflow-hidden"
@@ -719,6 +721,26 @@ const ChatPage: React.FC = () => {
       {showLoginModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
             <LoginModal onLogin={handleLogin} isLoggingIn={isLoggingIn} onClose={() => setShowLoginModal(false)} />
+        </div>
+      )}
+
+      {showHelpModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-[#171717] p-8 rounded-2xl border border-zinc-800 text-left max-w-lg w-full shadow-lg animate-fade-in relative">
+                <button 
+                    onClick={() => setShowHelpModal(false)} 
+                    aria-label="Close" 
+                    className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors p-1 rounded-full hover:bg-zinc-700"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+                <h2 className="text-2xl font-bold text-white mb-4">Help & Settings</h2>
+                <div className="h-64 text-zinc-400 flex items-center justify-center">
+                    <p>Settings and help information will appear here.</p>
+                </div>
+            </div>
         </div>
       )}
     </div>
