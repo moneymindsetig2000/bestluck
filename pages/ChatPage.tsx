@@ -4,7 +4,8 @@ import ChatHeader from '../components/chat/ChatHeader';
 import PromptInput from '../components/chat/PromptInput';
 import { ChatGptIcon, GeminiIcon, DeepSeekIcon, PerplexityIcon, ClaudeIcon, GrokIcon } from '../components/chat/ModelIcons';
 import ResponseWithCitations from '../components/chat/ResponseWithCitations';
-import { ensurePuterToken, safePuterFs, getChatsDirForUser } from '../lib/puterUtils';
+import { safePuterFs, getChatsDirForUser } from '../lib/puterUtils';
+import { User } from '../../App';
 
 declare global {
   interface Window {
@@ -12,65 +13,9 @@ declare global {
   }
 }
 
-// Singleton promise to ensure the SDK is loaded only once.
-let puterSDKPromise: Promise<void> | null = null;
-
-const loadPuterSDK = (): Promise<void> => {
-  if (puterSDKPromise) {
-    return puterSDKPromise;
-  }
-
-  puterSDKPromise = new Promise<void>((resolve, reject) => {
-    // If SDK is already available, resolve immediately.
-    if (typeof window.puter?.ai?.chat === 'function' && typeof window.puter?.auth?.getUser === 'function') {
-      return resolve();
-    }
-
-    const script = document.createElement('script');
-    script.src = 'https://js.puter.com/v2/';
-    script.async = true;
-
-    // A global timeout for the entire process, including download.
-    const globalTimeout = setTimeout(() => {
-        reject(new Error("Puter SDK timed out after 30 seconds. This could be due to a slow network connection or an ad-blocker."));
-    }, 30000);
-
-    script.onload = () => {
-        const startTime = Date.now();
-        const interval = setInterval(() => {
-            if (typeof window.puter?.ai?.chat === 'function' && typeof window.puter?.auth?.getUser === 'function') {
-                clearInterval(interval);
-                clearTimeout(globalTimeout);
-                resolve();
-            } else if (Date.now() - startTime > 10000) {
-                clearInterval(interval);
-                clearTimeout(globalTimeout);
-                let detailedError = "Puter SDK was downloaded but failed to initialize within 10 seconds. This can be caused by browser extensions (like ad-blockers), corporate firewalls, or a temporary issue with the Puter service. Please try disabling extensions and refreshing the page.";
-                 if (window.puter) {
-                  detailedError += " The 'puter' object was found, but was incomplete. Some modules might be missing."
-                } else {
-                  detailedError += " The 'puter' object was not found on the window."
-                }
-                reject(new Error(detailedError));
-            }
-        }, 100);
-    };
-
-    script.onerror = () => {
-        clearTimeout(globalTimeout);
-        reject(new Error("Failed to load the Puter SDK script. Please check your network connection and disable any ad-blockers that may be blocking js.puter.com."));
-    };
-
-    document.body.appendChild(script);
-  });
-
-  return puterSDKPromise;
-};
-
-interface User {
-  uid: string;
-  displayName: string | null;
-  photoURL: string | null;
+interface ChatPageProps {
+  user: User;
+  onLogout: () => void;
 }
 
 interface ModelConfig {
@@ -134,49 +79,13 @@ const renderWithMarkdown = (text: string | undefined) => {
   });
 };
 
-const LoginModal: React.FC<{ onLogin: () => void; isLoggingIn: boolean; onClose: () => void; }> = ({ onLogin, isLoggingIn, onClose }) => (
-  <div className="bg-[#171717] p-8 rounded-2xl border border-zinc-800 text-center max-w-sm shadow-lg animate-fade-in relative">
-    <button onClick={onClose} aria-label="Close" className="absolute top-3 right-3 text-zinc-500 hover:text-white transition-colors p-1 rounded-full hover:bg-zinc-700">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-    </button>
-    <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#272727]">
-        <svg width="32" height="32" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <ellipse cx="14" cy="14" rx="12" ry="5" transform="rotate(45 14 14)" stroke="url(#g1_login)" strokeWidth="2.5"/>
-          <ellipse cx="14" cy="14" rx="12" ry="5" transform="rotate(-45 14 14)" stroke="url(#g2_login)" strokeWidth="2.5"/>
-          <defs>
-            <linearGradient id="g1_login" x1="2" y1="14" x2="26" y2="14" gradientUnits="userSpaceOnUse"><stop stopColor="#67E8F9"/><stop offset="1" stopColor="#0891B2"/></linearGradient>
-            <linearGradient id="g2_login" x1="2" y1="14" x2="26" y2="14" gradientUnits="userSpaceOnUse"><stop stopColor="#34D399"/><stop offset="1" stopColor="#059669"/></linearGradient>
-          </defs>
-        </svg>
-    </div>
-    <h2 className="text-2xl font-bold text-white mb-2">Welcome to AI Fiesta</h2>
-    <p className="text-zinc-400 mb-6">
-        To start chatting with all AIs at once, please sign in with your Puter account. This is a one-time step for security.
-    </p>
-    <button
-        onClick={onLogin}
-        disabled={isLoggingIn}
-        className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-teal-400 to-green-500 text-black font-bold px-8 py-3 rounded-full hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300 relative overflow-hidden text-lg transform hover:-translate-y-0.5 group disabled:opacity-70 disabled:cursor-wait disabled:transform-none disabled:shadow-none"
-    >
-        <span className="relative z-10">{isLoggingIn ? 'Connecting...' : 'Connect and Start Chatting'}</span>
-         {!isLoggingIn && (
-            <svg className="relative z-10 w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-         )}
-    </button>
-  </div>
-);
-
-const ChatPage: React.FC = () => {
+const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
   const [expandedModel, setExpandedModel] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>(initialModels);
   const [responses, setResponses] = useState<Record<string, Response[]>>({});
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
   
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
 
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
@@ -238,38 +147,6 @@ const ChatPage: React.FC = () => {
     }
   }, [responses, chatSessions]);
 
-  const checkAuthState = useCallback(async () => {
-    setIsAuthChecking(true);
-    try {
-      await ensurePuterToken();
-      const puterUser = await window.puter.auth.getUser();
-      if (puterUser) {
-        setUser({
-          uid: puterUser.uuid || puterUser.uid || puterUser.sub,
-          displayName: puterUser.name || puterUser.username || null,
-          photoURL: puterUser.avatar || null,
-        });
-      } else {
-        setUser(null);
-      }
-    } catch (error) {
-      console.error('checkAuthState failed:', error);
-      setUser(null);
-    } finally {
-      setIsAuthChecking(false);
-    }
-  }, []);
-  
-  useEffect(() => {
-    loadPuterSDK().then(() => {
-        checkAuthState();
-    }).catch(error => {
-        console.error("Puter SDK failed to load:", error);
-        alert(error.message);
-        setIsAuthChecking(false);
-    });
-  }, [checkAuthState]);
-
   useEffect(() => {
     const loadInitialData = async () => {
       if (!user) {
@@ -283,7 +160,6 @@ const ChatPage: React.FC = () => {
       try {
         const currentPuterUser = await window.puter.auth.getUser();
         if (!currentPuterUser || !(currentPuterUser.uuid || currentPuterUser.uid || currentPuterUser.sub)) {
-          setUser(null); 
           setDbError("User session expired. Please sign in again.");
           return;
         }
@@ -368,36 +244,6 @@ const ChatPage: React.FC = () => {
         saveChat(activeChatId);
     }
   }, [loadingStates, activeChatId, saveChat]);
-
-  const handleLogin = async () => {
-    setIsLoggingIn(true);
-    try {
-      await window.puter.auth.signIn();
-      await checkAuthState(); // This will re-trigger the loadInitialData effect
-      setShowLoginModal(false);
-    } catch (error: any) {
-      console.log("Puter sign-in process was not completed:", error.message);
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
-  
-  const handleLogout = async () => {
-    try {
-       await window.puter.auth.signOut();
-       setUser(null);
-       setResponses({});
-       setChatSessions([]);
-       setActiveChatId(null);
-    } catch (error) {
-      console.error("Puter sign-out process failed.", error);
-      alert("Sign-out failed. Please try again.");
-    }
-  };
-
-  const promptLogin = () => {
-    setShowLoginModal(true);
-  };
 
   const handleToggleExpand = (modelName: string) => {
     setExpandedModel(prev => (prev === modelName ? null : modelName));
@@ -533,11 +379,6 @@ const ChatPage: React.FC = () => {
   };
 
   const handleSend = async (prompt: string) => {
-    if (!user) {
-        promptLogin();
-        return;
-    }
-
     let chatIdToUse = activeChatId;
     const isNewChat = !chatIdToUse;
 
@@ -593,9 +434,7 @@ const ChatPage: React.FC = () => {
         isCollapsed={isSidebarCollapsed} 
         onToggleCollapse={() => setIsSidebarCollapsed(p => !p)} 
         user={user}
-        onLogout={handleLogout}
-        onLogin={promptLogin}
-        isAuthChecking={isAuthChecking}
+        onLogout={onLogout}
         chatSessions={chatSessions}
         activeChatId={activeChatId}
         onNewChat={handleNewChat}
@@ -718,12 +557,6 @@ const ChatPage: React.FC = () => {
         </div>
       )}
       
-      {showLoginModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-            <LoginModal onLogin={handleLogin} isLoggingIn={isLoggingIn} onClose={() => setShowLoginModal(false)} />
-        </div>
-      )}
-
       {showHelpModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-[#171717] p-8 rounded-2xl border border-zinc-800 text-left max-w-lg w-full shadow-lg animate-fade-in relative">

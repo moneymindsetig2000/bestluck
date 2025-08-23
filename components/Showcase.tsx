@@ -8,8 +8,11 @@ const YouTubeIcon = () => (
     </svg>
 );
 
+interface ShowcaseProps {
+    onLogin: () => Promise<void>;
+}
 
-const Showcase: React.FC = () => {
+const Showcase: React.FC<ShowcaseProps> = ({ onLogin }) => {
     return (
         <section className="py-20 sm:py-32">
             <div className="container mx-auto px-6">
@@ -122,13 +125,13 @@ const Showcase: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
-                            <a
-                                href="#"
+                            <button
+                                onClick={onLogin}
                                 className="mt-6 w-full text-center inline-flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white font-semibold px-8 py-4 rounded-full hover:shadow-lg hover:shadow-emerald-500/20 transition-all duration-300 relative overflow-hidden text-lg"
                                 >
                                 <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.7) 1px, transparent 1px)', backgroundSize: '5px 5px' }}></div>
                                 <span className="relative z-10">Get smarter & more accurate AI answers</span>
-                            </a>
+                            </button>
                             <p className="text-center text-sm text-gray-500 mt-2">
                                 This is why comparing matters — get the full picture every time
                             </p>

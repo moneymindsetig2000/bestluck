@@ -1,11 +1,63 @@
-
-
-
 declare global {
   interface Window {
     puter: any;
   }
 }
+
+// Singleton promise to ensure the SDK is loaded only once.
+let puterSDKPromise: Promise<void> | null = null;
+
+export const loadPuterSDK = (): Promise<void> => {
+  if (puterSDKPromise) {
+    return puterSDKPromise;
+  }
+
+  puterSDKPromise = new Promise<void>((resolve, reject) => {
+    // If SDK is already available, resolve immediately.
+    if (typeof window.puter?.ai?.chat === 'function' && typeof window.puter?.auth?.getUser === 'function') {
+      return resolve();
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://js.puter.com/v2/';
+    script.async = true;
+
+    // A global timeout for the entire process, including download.
+    const globalTimeout = setTimeout(() => {
+        reject(new Error("Puter SDK timed out after 30 seconds. This could be due to a slow network connection or an ad-blocker."));
+    }, 30000);
+
+    script.onload = () => {
+        const startTime = Date.now();
+        const interval = setInterval(() => {
+            if (typeof window.puter?.ai?.chat === 'function' && typeof window.puter?.auth?.getUser === 'function') {
+                clearInterval(interval);
+                clearTimeout(globalTimeout);
+                resolve();
+            } else if (Date.now() - startTime > 10000) {
+                clearInterval(interval);
+                clearTimeout(globalTimeout);
+                let detailedError = "Puter SDK was downloaded but failed to initialize within 10 seconds. This can be caused by browser extensions (like ad-blockers), corporate firewalls, or a temporary issue with the Puter service. Please try disabling extensions and refreshing the page.";
+                 if (window.puter) {
+                  detailedError += " The 'puter' object was found, but was incomplete. Some modules might be missing."
+                } else {
+                  detailedError += " The 'puter' object was not found on the window."
+                }
+                reject(new Error(detailedError));
+            }
+        }, 100);
+    };
+
+    script.onerror = () => {
+        clearTimeout(globalTimeout);
+        reject(new Error("Failed to load the Puter SDK script. Please check your network connection and disable any ad-blockers that may be blocking js.puter.com."));
+    };
+
+    document.body.appendChild(script);
+  });
+
+  return puterSDKPromise;
+};
 
 // ensureToken.ts - small helper to guarantee SDK token available
 export async function ensurePuterToken() {

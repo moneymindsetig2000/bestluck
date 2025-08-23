@@ -100,8 +100,11 @@ const ModelIcons = () => (
   </div>
 );
 
+interface PricingProps {
+  onLogin: () => Promise<void>;
+}
 
-const Pricing: React.FC = () => {
+const Pricing: React.FC<PricingProps> = ({ onLogin }) => {
     const [plan, setPlan] = useState<'monthly' | 'yearly'>('monthly');
 
     return (
@@ -250,14 +253,14 @@ const Pricing: React.FC = () => {
                                 </li>
                             </ul>
                             
-                            <a
-                              href="#"
+                            <button
+                              onClick={onLogin}
                               className="mt-8 w-full text-center inline-flex items-center justify-center gap-2 bg-gradient-to-r from-teal-400 to-green-500 text-black font-bold px-8 py-4 rounded-full hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300 relative overflow-hidden text-lg transform hover:-translate-y-0.5 group"
                             >
                               <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.7) 1px, transparent 1px)', backgroundSize: '5px 5px' }}></div>
                               <span className="relative z-10">Get Started Now</span>
                               <svg className="relative z-10 w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                            </a>
+                            </button>
                             <p className="text-center text-xs text-zinc-500 mt-4">
                                 🔒 Payments are processed by TagMango using Razorpay & Stripe
                             </p>

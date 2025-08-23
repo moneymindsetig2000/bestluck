@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import FadeInSection from './FadeInSection';
 
-const Hero: React.FC = () => {
+interface HeroProps {
+  onLogin: () => Promise<void>;
+}
+
+const Hero: React.FC<HeroProps> = ({ onLogin }) => {
   const animatedWords = ['Chat.', 'Subscription.'];
   const [wordIndex, setWordIndex] = useState(0);
   const [animationState, setAnimationState] = useState<'in' | 'out'>('in');
@@ -54,14 +58,14 @@ const Hero: React.FC = () => {
             </FadeInSection>
             <FadeInSection className="delay-300">
               <div className="mt-10 flex flex-col items-start">
-                <a
-                  href="#"
+                <button
+                  onClick={onLogin}
                   className="inline-flex items-center gap-3 bg-gradient-to-r from-teal-400 to-green-500 text-white font-semibold px-10 py-5 rounded-full hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300 relative overflow-hidden text-xl transform hover:-translate-y-1 group"
                 >
                   <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(rgba(255, 255, 255, 0.7) 1px, transparent 1px)', backgroundSize: '5px 5px' }}></div>
                   <span className="relative z-10">Get Started Now</span>
                   <svg className="relative z-10 w-6 h-6 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                </a>
+                </button>
                 <p className="mt-5 text-sm text-gray-500">
                   Experience smarter & more accurate answers
                 </p>

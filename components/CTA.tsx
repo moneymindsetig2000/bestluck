@@ -37,9 +37,10 @@ const Logo = () => (
 interface CTAProps {
   onButtonHoverChange: (isHovered: boolean) => void;
   isHovered: boolean;
+  onLogin: () => Promise<void>;
 }
 
-const CTA: React.FC<CTAProps> = ({ onButtonHoverChange, isHovered }) => {
+const CTA: React.FC<CTAProps> = ({ onButtonHoverChange, isHovered, onLogin }) => {
   return (
     <section className="relative py-28 sm:py-40">
       {/* Background Elements */}
@@ -60,8 +61,8 @@ const CTA: React.FC<CTAProps> = ({ onButtonHoverChange, isHovered }) => {
               Gain an edge with our exclusive Promptbook, designed to provide you with tailored insights and guidance across every industry and subject.
             </p>
             <div className="mt-12">
-              <a
-                href="#"
+              <button
+                onClick={onLogin}
                 className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white rounded-full bg-zinc-900/80 backdrop-blur-sm border border-white/10 overflow-hidden shadow-2xl shadow-emerald-500/10 transition-transform duration-300 hover:scale-105"
                 aria-label="Get Started Now"
                 onMouseEnter={() => onButtonHoverChange(true)}
@@ -76,7 +77,7 @@ const CTA: React.FC<CTAProps> = ({ onButtonHoverChange, isHovered }) => {
                 <span className="relative z-10 flex items-center gap-3">
                   Get Started Now <ArrowIcon />
                 </span>
-              </a>
+              </button>
             </div>
             <div className="mt-28">
               <Logo />

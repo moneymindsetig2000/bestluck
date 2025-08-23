@@ -26,7 +26,11 @@ const navLinks = [
   { href: '#faqs', label: 'FAQs' },
 ];
 
-const Header: React.FC = () => {
+interface HeaderProps {
+  onLogin: () => Promise<void>;
+}
+
+const Header: React.FC<HeaderProps> = ({ onLogin }) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -90,14 +94,14 @@ const Header: React.FC = () => {
             ))}
           </nav>
 
-          <a
-            href="#"
+          <button
+            onClick={onLogin}
             className="hidden md:flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white font-semibold px-6 py-3 rounded-full hover:shadow-lg hover:shadow-emerald-500/20 transition-shadow duration-300 relative overflow-hidden"
           >
             <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '4px 4px' }}></div>
             <span className="relative z-10 text-base">Log In</span>
             <svg className="relative z-10 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-          </a>
+          </button>
 
           <button className="md:hidden text-white z-50" onClick={() => setIsMenuOpen(!isMenuOpen)}>
             {isMenuOpen ? (
@@ -121,15 +125,14 @@ const Header: React.FC = () => {
               {link.label}
             </a>
           ))}
-          <a
-            href="#"
-            onClick={() => setIsMenuOpen(false)}
+          <button
+            onClick={onLogin}
             className="flex items-center gap-3 bg-gradient-to-r from-cyan-500 to-emerald-500 text-white font-semibold px-8 py-4 rounded-full hover:shadow-lg hover:shadow-emerald-500/20 transition-shadow duration-300 relative overflow-hidden"
           >
             <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '4px 4px' }}></div>
             <span className="relative z-10 text-lg">Log In</span>
             <svg className="relative z-10 w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-          </a>
+          </button>
         </div>
       </div>
     </>
