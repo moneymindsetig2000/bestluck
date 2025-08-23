@@ -20,6 +20,21 @@
         animation: fade-in 0.5s ease-out forwards;
       }
 
+      @keyframes text-slide-in-up {
+        from { opacity: 0; transform: translateY(1.2em); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes text-slide-out-up {
+        from { opacity: 1; transform: translateY(0); }
+        to { opacity: 0; transform: translateY(-1.2em); }
+      }
+      .animate-text-slide-in-up {
+        animation: text-slide-in-up 0.3s ease-in-out forwards;
+      }
+      .animate-text-slide-out-up {
+        animation: text-slide-out-up 0.3s ease-in-out forwards;
+      }
+
       /* Custom Scrollbar Styling */
       /* For Firefox */
       * {

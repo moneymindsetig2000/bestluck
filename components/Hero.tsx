@@ -13,7 +13,7 @@ const Hero: React.FC<HeroProps> = ({ onLogin }) => {
   useEffect(() => {
     const interval = setInterval(() => {
       setAnimationState('out');
-    }, 3500); // How long each word stays visible (increased)
+    }, 2500); // How long each word stays visible
     return () => clearInterval(interval);
   }, []);
 
@@ -39,11 +39,11 @@ const Hero: React.FC<HeroProps> = ({ onLogin }) => {
                 World's Most<br />
                 Powerful AIs.<br />
                 One&nbsp;
-                <span className="relative inline-block h-[1.2em] w-[300px] lg:w-[500px] align-bottom overflow-hidden text-left">
+                <span className="relative inline-block h-[1.2em] w-[300px] lg:w-[500px] align-middle overflow-hidden text-left">
                   <span
                     key={wordIndex}
                     className={`absolute inset-0 ${
-                      animationState === 'in' ? 'animate-text-slide-in-down' : 'animate-text-slide-out-up'
+                      animationState === 'in' ? 'animate-text-slide-in-up' : 'animate-text-slide-out-up'
                     }`}
                   >
                     {animatedWords[wordIndex]}
