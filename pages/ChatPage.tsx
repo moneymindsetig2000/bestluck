@@ -92,6 +92,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [chatToDelete, setChatToDelete] = useState<ChatSession | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [activeSettingTab, setActiveSettingTab] = useState('subscription');
 
 
   const prevLoadingStatesRef = useRef<Record<string, boolean>>({});
@@ -558,24 +559,88 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
       )}
       
       {showHelpModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-[#171717] p-8 rounded-2xl border border-zinc-800 text-left max-w-lg w-full shadow-lg animate-fade-in relative">
-                <button 
-                    onClick={() => setShowHelpModal(false)} 
-                    aria-label="Close" 
-                    className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors p-1 rounded-full hover:bg-zinc-700"
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-[#1C1C1C] max-w-4xl w-full h-[600px] rounded-2xl border border-zinc-800 shadow-lg flex overflow-hidden relative">
+            <button 
+              onClick={() => setShowHelpModal(false)} 
+              aria-label="Close" 
+              className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors p-1 rounded-full hover:bg-zinc-700 z-20"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            
+            {/* Sidebar */}
+            <div className="w-1/4 bg-[#171717] p-4 border-r border-zinc-800 flex flex-col">
+              <h2 className="text-xl font-bold text-white mb-6 px-2">Settings</h2>
+              <nav className="flex flex-col gap-2">
+                <button
+                  onClick={() => setActiveSettingTab('subscription')}
+                  className={`flex items-center gap-3 w-full text-left p-3 rounded-lg text-sm font-medium transition-colors ${activeSettingTab === 'subscription' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                  <span>Subscription</span>
                 </button>
-                <h2 className="text-2xl font-bold text-white mb-4">Help & Settings</h2>
-                <div className="h-64 text-zinc-400 flex items-center justify-center">
-                    <p>Settings and help information will appear here.</p>
-                </div>
+                <button
+                  onClick={() => setActiveSettingTab('account')}
+                  className={`flex items-center gap-3 w-full text-left p-3 rounded-lg text-sm font-medium transition-colors ${activeSettingTab === 'account' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                  <span>Account</span>
+                </button>
+              </nav>
             </div>
+            
+            {/* Content */}
+            <div className="w-3/4 p-8 overflow-y-auto">
+              {activeSettingTab === 'subscription' && (
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-6">Manage Subscription</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Free Plan Card */}
+                    <div className="bg-[#27272a] border-2 border-zinc-700 rounded-xl p-6 flex flex-col relative">
+                      <span className="absolute top-4 right-4 text-xs font-semibold bg-zinc-600 text-zinc-200 px-2 py-1 rounded-full">Current Plan</span>
+                      <h4 className="text-xl font-bold text-white">Free Plan</h4>
+                      <p className="text-3xl font-bold text-white mt-2">$0 <span className="text-xl font-medium text-zinc-400">/ month</span></p>
+                      <ul className="space-y-3 mt-6 text-zinc-300 text-sm flex-grow">
+                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-zinc-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Limited AI model access</li>
+                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-zinc-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Basic message limits</li>
+                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-zinc-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Standard support</li>
+                      </ul>
+                      <button disabled className="mt-6 w-full text-center py-3 rounded-lg bg-zinc-700 text-zinc-400 font-semibold cursor-not-allowed">Your Plan</button>
+                    </div>
+                    {/* Pro Plan Card */}
+                    <div className="bg-[#27272a] border-2 border-green-400/30 hover:border-green-400/60 rounded-xl p-6 flex flex-col transition-colors">
+                      <h4 className="text-xl font-bold text-white">Pro Plan</h4>
+                      <p className="text-3xl font-bold text-white mt-2">₹999 <span className="text-xl font-medium text-zinc-400">/ month</span></p>
+                      <ul className="space-y-3 mt-6 text-zinc-300 text-sm flex-grow">
+                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>All premium AI models</li>
+                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>400,000 tokens/month</li>
+                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Prompt enhancement</li>
+                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Image & Audio features</li>
+                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Community & Promptbook</li>
+                      </ul>
+                      <button className="mt-6 w-full text-center bg-gradient-to-r from-teal-400 to-green-500 text-black font-bold py-3 rounded-lg hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300 transform hover:-translate-y-0.5 group">
+                          Upgrade to Pro
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {activeSettingTab === 'account' && (
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-6">Account Details</h3>
+                  <div className="bg-[#27272a] border border-zinc-700 rounded-xl p-6">
+                    <p className="text-zinc-400">Account settings and user information will appear here.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
+
     </div>
   );
 };
