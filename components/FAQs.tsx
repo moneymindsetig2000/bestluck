@@ -3,8 +3,8 @@ import FadeInSection from './FadeInSection';
 
 const faqData = [
   {
-    question: 'How is AI Fiesta different from subscribing to each AI separately?',
-    answer: 'AI Fiesta provides a unified platform where you can access multiple premium AI models with a single subscription. This saves you money compared to subscribing to each service individually and allows you to compare responses side-by-side in one interface, eliminating the need to switch between tabs.',
+    question: 'How is AI Clavis different from subscribing to each AI separately?',
+    answer: 'AI Clavis provides a unified platform where you can access multiple premium AI models with a single subscription. This saves you money compared to subscribing to each service individually and allows you to compare responses side-by-side in one interface, eliminating the need to switch between tabs.',
   },
   {
     question: 'Can I choose which AI models to use?',
@@ -20,7 +20,7 @@ const faqData = [
   },
   {
     question: 'Do you offer refunds?',
-    answer: 'We offer a 7-day money-back guarantee. If you\'re not satisfied with AI Fiesta within the first week of your subscription, you can request a full refund, no questions asked.',
+    answer: 'We offer a 7-day money-back guarantee. If you\'re not satisfied with AI Clavis within the first week of your subscription, you can request a full refund, no questions asked.',
   },
   {
     question: 'How can I manage or cancel my subscription?',
@@ -28,15 +28,15 @@ const faqData = [
   },
   {
     question: 'Where can I access the Community and the Promptbook?',
-    answer: 'Upon subscribing, you will receive an exclusive invitation to join our community and gain access to the Ultimate Promptbook. These resources are designed to help you get the most out of AI Fiesta.',
+    answer: 'Upon subscribing, you will receive an exclusive invitation to join our community and gain access to the Ultimate Promptbook. These resources are designed to help you get the most out of AI Clavis.',
   },
   {
-    question: 'Can I use AI Fiesta on my phone?',
-    answer: 'Absolutely. AI Fiesta is designed to be fully responsive, meaning you can use it on any device with a web browser, including your desktop, tablet, and smartphone, for a seamless experience on the go.',
+    question: 'Can I use AI Clavis on my phone?',
+    answer: 'Absolutely. AI Clavis is designed to be fully responsive, meaning you can use it on any device with a web browser, including your desktop, tablet, and smartphone, for a seamless experience on the go.',
   },
   {
     question: 'Will I get free upgrades when new AI versions are released?',
-    answer: 'Yes, your AI Fiesta subscription includes all future updates and access to new AI models as we integrate them into the platform. You\'ll always have the latest and greatest tools at your fingertips.',
+    answer: 'Yes, your AI Clavis subscription includes all future updates and access to new AI models as we integrate them into the platform. You\'ll always have the latest and greatest tools at your fingertips.',
   },
 ];
 

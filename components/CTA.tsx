@@ -18,7 +18,7 @@ const ArrowIcon = () => (
 const CTALogo = () => (
     <div className="flex items-center gap-4 z-10">
       <Logo width={40} height={40} />
-      <span className="text-2xl font-bold text-white tracking-wide">AI Fiesta</span>
+      <span className="text-2xl font-bold text-white tracking-wide">AI Clavis</span>
     </div>
   );
 

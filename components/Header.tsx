@@ -67,7 +67,7 @@ const Header: React.FC<HeaderProps> = ({ onLogin }) => {
         <div className={`container mx-auto px-4 py-3 flex justify-between items-center transition-all duration-300 ${isScrolled ? 'bg-black/50 backdrop-blur-lg border border-gray-800 rounded-full' : 'bg-transparent'}`}>
           <a href="#" className="flex items-center gap-4 z-10">
             <Logo width={40} height={40} />
-            <span className="text-2xl font-bold text-white tracking-wide">AI Fiesta</span>
+            <span className="text-2xl font-bold text-white tracking-wide">AI Clavis</span>
           </a>
           
           <nav className="hidden md:flex items-center bg-zinc-900/70 border border-zinc-800 rounded-full p-1.5 backdrop-blur-md">

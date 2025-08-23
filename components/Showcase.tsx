@@ -19,7 +19,7 @@ const Showcase: React.FC<ShowcaseProps> = ({ onLogin }) => {
             <div className="container mx-auto px-6">
                 <FadeInSection className="text-center max-w-4xl mx-auto">
                     <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white leading-tight tracking-tighter">
-                        Watch AI Fiesta Catch What Others Miss
+                        Watch AI Clavis Catch What Others Miss
                     </h2>
                     <p className="mt-6 text-lg text-gray-400">
                         Real question. Real answers. See which AI gets it right.
@@ -38,10 +38,10 @@ const Showcase: React.FC<ShowcaseProps> = ({ onLogin }) => {
                                     <div className="flex items-center gap-3">
                                         <Logo width={24} height={24} />
                                         <p className="text-white font-medium text-sm sm:text-base hidden sm:block">
-                                            Watch AI Fiesta Catch What ChatGPT, Gemini, Claude, Perplexity, Deep...
+                                            Watch AI Clavis Catch What ChatGPT, Gemini, Claude, Perplexity, Deep...
                                         </p>
                                         <p className="text-white font-medium text-sm sm:text-base sm:hidden">
-                                            AI Fiesta Comparison
+                                            AI Clavis Comparison
                                         </p>
                                     </div>
                                     <button className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">

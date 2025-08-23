@@ -192,13 +192,13 @@ const Pricing: React.FC<PricingProps> = ({ onLogin }) => {
                     {/* VS Separator */}
                     <div className="text-zinc-600 font-bold text-2xl my-4 lg:my-0 lg:mx-4">VS</div>
 
-                    {/* Right Card: AI Fiesta */}
+                    {/* Right Card: AI Clavis */}
                     <FadeInSection direction="right" className="w-full max-w-2xl">
                          <div className="relative bg-[#1a1a1a]/50 border border-green-400/30 rounded-3xl p-8 shadow-2xl shadow-green-500/10">
                             <div className="absolute -inset-px bg-gradient-to-br from-green-400/50 to-teal-600/50 rounded-3xl blur-xl opacity-30 -z-10"></div>
                             <div className="flex items-center gap-3">
                                 <Logo />
-                                <h3 className="text-2xl font-bold text-white">AI Fiesta</h3>
+                                <h3 className="text-2xl font-bold text-white">AI Clavis</h3>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">

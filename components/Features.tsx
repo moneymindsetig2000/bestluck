@@ -179,7 +179,7 @@ const featuresData = [
             </div>
         ),
         title: "Compare All Premium AIs at Once",
-        description: "Free AI models often deliver restricted and inferior answers. With AI Fiesta, you get access to multiple top-tier premium models, all in one place. Compare their responses side-by-side to experience faster, smarter, and most accurate answers.",
+        description: "Free AI models often deliver restricted and inferior answers. With AI Clavis, you get access to multiple top-tier premium models, all in one place. Compare their responses side-by-side to experience faster, smarter, and most accurate answers.",
         bullets: ["Save hours of manual comparison", "Customize your AI team instantly", "Never miss the most accurate answer again"],
         mockup: <MockupCompare />,
         shadowColor: 'shadow-teal-900/20'

@@ -182,12 +182,12 @@ export const safePuterFs = {
 };
 
 export const getChatsDirForUser = (user: { uid?: string; uuid?: string; sub?: string } | null) => {
-  if (!user) return '/tmp/ai-fiesta-clone/chats'; // fallback when user absent
+  if (!user) return '/tmp/ai-clavis-clone/chats'; // fallback when user absent
   const uid = user.uuid || user.uid || user.sub;
   if (!uid) {
     console.error("Could not determine user ID for filesystem path.");
     // Fallback to a temporary, non-persistent path
-    return `/tmp/ai-fiesta-clone/chats_${Date.now()}`;
+    return `/tmp/ai-clavis-clone/chats_${Date.now()}`;
   }
   // For an authenticated user, return a relative path.
   // The Puter SDK will automatically scope this to the current user's private storage for this app.
