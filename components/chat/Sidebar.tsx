@@ -90,7 +90,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggleCollapse, user, 
          </button>
           
         <div className={`flex items-center w-full p-2 rounded-lg text-gray-300 ${isCollapsed ? 'justify-center' : ''}`}>
-          <img src={user.photoURL || undefined} alt={user.displayName || 'User'} className="h-6 w-6 flex-shrink-0 rounded-full" />
+          <img 
+            src={user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'A')}&background=27272a&color=fff&size=24&bold=true`} 
+            alt={user.displayName || 'User Avatar'} 
+            className="h-6 w-6 flex-shrink-0 rounded-full" 
+          />
           <span className={`whitespace-nowrap overflow-hidden transition-all ${isCollapsed ? 'w-0' : 'w-auto ml-3'}`}>
             {!isCollapsed && (user.displayName || 'Anonymous')}
           </span>
