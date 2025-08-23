@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import FadeInSection from './FadeInSection';
 import Logo from './Logo';
+import { ChatGptIcon, ClaudeIcon, GeminiIcon, GrokIcon, PerplexityIcon } from './shared/ModelIcons';
 
 // Icons
 const CheckIcon = ({ className = '' }: { className?: string }) => (
@@ -29,75 +30,13 @@ const XIcon = () => (
     </svg>
 );
 
-// Specific AI Model Icons
-const ChatGptIcon = () => (
-    <svg className="w-5 h-5 text-teal-400" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M22.53,9.72,18,5.19,16.28,7,18,8.72,13.5,13.22,9,8.72l4.5-4.5L11.78,2.5,2.25,12l9.53,9.5,1.72-1.72-4.5-4.5,4.5-4.5,4.5,4.5L20.22,13Z"></path>
-    </svg>
-);
-
-const GoogleIcon = () => (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-        <path d="M21.35,11.1H12.18V13.83H18.69C18.36,17.64 15.19,19.27 12.19,19.27C8.36,19.27 5,16.25 5,12C5,7.9 8.2,4.73 12.19,4.73C15.29,4.73 17.1,6.7 17.1,6.7L19,4.72C19,4.72 16.56,2 12.19,2C6.42,2 2.03,6.8 2.03,12C2.03,17.05 6.16,22 12.19,22C17.6,22 21.5,18.33 21.5,12.91C21.5,11.76 21.35,11.1 21.35,11.1Z"/>
-    </svg>
-);
-
-const PerplexityIcon = () => (
-    <svg className="w-5 h-5 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12H18A6,6 0 0,0 12,6V4M4,12A8,8 0 0,1 12,4V6A6,6 0 0,0 6,12H4M12,20A8,8 0 0,1 4,12H6A6,6 0 0,0 12,18V20M20,12A8,8 0 0,1 12,20V18A6,6 0 0,0 18,12H20Z"></path>
-    </svg>
-);
-
-const ClaudeIcon = () => (
-    <div className="w-5 h-5 flex items-center justify-center font-bold text-base bg-[#d0825f] text-white rounded-sm p-1 leading-none">
-        C
-    </div>
-);
-
-const GrokIcon = () => (
-    <div className="w-5 h-5 flex items-center justify-center bg-zinc-800 border border-zinc-600 rounded-sm p-0.5">
-        <svg className="w-full h-full text-white" fill="currentColor" viewBox="0 0 256 256">
-            <path d="M208.49,191.51a12,12,0,0,1-17,17L128,145,64.49,208.49a12,12,0,0,1-17-17L111,128,47.51,64.49a12,12,0,0,1,17-17L128,111l63.51-63.52a12,12,0,0,1,17,17L145,128Z"></path>
-        </svg>
-    </div>
-);
-
-const IconWrapper = ({ children, className, style }: { children: React.ReactNode, className?: string, style?: React.CSSProperties }) => (
-    <div 
-        className={`w-6 h-6 rounded-full flex items-center justify-center ring-2 ring-zinc-900 ${className}`}
-        style={style}
-    >
-        {children}
-    </div>
-);
-
 const ModelIcons = () => (
   <div className="flex items-center -space-x-2 ml-auto">
-      {/* ChatGPT */}
-      <IconWrapper className="bg-[#10A37F]" style={{ zIndex: 5 }}>
-          <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M22.53,9.72,18,5.19,16.28,7,18,8.72,13.5,13.22,9,8.72l4.5-4.5L11.78,2.5,2.25,12l9.53,9.5,1.72-1.72-4.5-4.5,4.5-4.5,4.5,4.5L20.22,13Z"></path></svg>
-      </IconWrapper>
-      {/* Google Gemini */}
-      <IconWrapper className="bg-white p-0.5" style={{ zIndex: 4 }}>
-          <svg className="w-full h-full" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-              <path fill="#4285F4" d="M45.12 24.52c0-1.6-.14-3.15-.4-4.66H24.48v8.78h11.6c-.5 2.82-1.93 5.23-4.08 6.86v5.7h7.34c4.3-3.96 6.78-9.92 6.78-16.68z"/>
-              <path fill="#34A853" d="M24.48 46c5.94 0 10.95-1.96 14.6-5.32l-7.34-5.7c-1.96 1.32-4.48 2.1-7.26 2.1-5.58 0-10.3-3.76-12-8.82H5.06v5.86c3.55 7.04 10.8 11.88 19.42 11.88z"/>
-              <path fill="#FBBC05" d="M12.48 28.28c-.42-1.32-.66-2.73-.66-4.18s.24-2.86.66-4.18V14.06H5.06c-1.32 2.6-2.08 5.52-2.08 8.76s.76 6.16 2.08 8.76l7.42-5.88z"/>
-              <path fill="#EA4335" d="M24.48 9.92c3.24 0 6.12 1.1 8.4 3.3l6.52-6.52C35.42 2.94 30.42 1 24.48 1 15.86 1 8.6 5.84 5.06 12.9l7.42 5.86c1.7-5.06 6.42-8.84 12-8.84z"/>
-          </svg>
-      </IconWrapper>
-      {/* Perplexity */}
-      <IconWrapper className="bg-black" style={{ zIndex: 3 }}>
-          <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12H18A6,6 0 0,0 12,6V4M4,12A8,8 0 0,1 12,4V6A6,6 0 0,0 6,12H4M12,20A8,8 0 0,1 4,12H6A6,6 0 0,0 12,18V20M20,12A8,8 0 0,1 12,20V18A6,6 0 0,0 18,12H20Z"></path></svg>
-      </IconWrapper>
-      {/* Claude */}
-      <IconWrapper className="bg-[#D97706] text-white font-bold text-xs" style={{ zIndex: 2 }}>
-          C
-      </IconWrapper>
-      {/* Grok */}
-      <IconWrapper className="bg-zinc-800" style={{ zIndex: 1 }}>
-          <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 256 256"><path d="M208.49,191.51a12,12,0,0,1-17,17L128,145,64.49,208.49a12,12,0,0,1-17-17L111,128,47.51,64.49a12,12,0,0,1,17-17L128,111l63.51-63.52a12,12,0,0,1,17,17L145,128Z"></path></svg>
-      </IconWrapper>
+      <ChatGptIcon size={24} className="ring-2 ring-zinc-900" style={{ zIndex: 5 }} />
+      <GeminiIcon size={24} className="bg-white rounded-full ring-2 ring-zinc-900 p-0.5" style={{ zIndex: 4 }} />
+      <PerplexityIcon size={24} className="bg-black rounded-full ring-2 ring-zinc-900 p-0.5" style={{ zIndex: 3 }} />
+      <ClaudeIcon size={24} className="ring-2 ring-zinc-900" style={{ zIndex: 2 }} />
+      <GrokIcon size={24} className="ring-2 ring-zinc-900" style={{ zIndex: 1 }} />
   </div>
 );
 
@@ -135,35 +74,35 @@ const Pricing: React.FC<PricingProps> = ({ onLogin }) => {
                             <ul className="space-y-3 mt-6 text-zinc-300 text-sm">
                                 <li className="flex items-center justify-between">
                                     <span className="flex items-center gap-2.5">
-                                        <ChatGptIcon />
+                                        <ChatGptIcon size={20} />
                                         ChatGPT 5
                                     </span>
                                     <span className="font-medium text-red-400">$20/mo</span>
                                 </li>
                                 <li className="flex items-center justify-between">
                                     <span className="flex items-center gap-2.5">
-                                        <GoogleIcon />
+                                        <GeminiIcon size={20} className="text-white" />
                                         Google Gemini 2.5 Pro
                                     </span>
                                     <span className="font-medium text-red-400">$20/mo</span>
                                 </li>
                                 <li className="flex items-center justify-between">
                                      <span className="flex items-center gap-2.5">
-                                        <PerplexityIcon />
+                                        <PerplexityIcon size={20} />
                                         Perplexity Sonar Pro
                                     </span>
                                     <span className="font-medium text-red-400">$20/mo</span>
                                 </li>
                                 <li className="flex items-center justify-between">
                                      <span className="flex items-center gap-2.5">
-                                        <ClaudeIcon />
+                                        <ClaudeIcon size={20} />
                                         Claude Sonnet 4
                                     </span>
                                     <span className="font-medium text-red-400">$20/mo</span>
                                 </li>
                                 <li className="flex items-center justify-between">
                                      <span className="flex items-center gap-2.5">
-                                        <GrokIcon />
+                                        <GrokIcon size={20} />
                                         Grok 4
                                     </span>
                                     <span className="font-medium text-red-400">$30/mo</span>

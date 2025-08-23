@@ -1,5 +1,6 @@
 import React from 'react';
 import FadeInSection from './FadeInSection';
+import { ChatGptIcon, ClaudeIcon, DeepSeekIcon, GeminiIcon, GrokIcon, PerplexityIcon } from './shared/ModelIcons';
 
 const CheckIcon = () => (
     <svg className="w-6 h-6 text-emerald-400 flex-shrink-0 mt-1" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor">
@@ -55,7 +56,7 @@ const MockupCompare = () => (
         <div className="w-full h-full flex gap-4 overflow-hidden">
             <div className="flex-1 bg-zinc-900/70 border border-zinc-800 rounded-lg p-3 text-xs text-gray-400 flex flex-col space-y-3">
                 <div className="flex items-center gap-2 text-white font-medium border-b border-zinc-700 pb-2">
-                  <svg width="14" height="14" viewBox="0 0 24 24"><path fill="currentColor" d="M22.53,9.72,18,5.19,16.28,7,18,8.72,13.5,13.22,9,8.72l4.5-4.5L11.78,2.5,2.25,12l9.53,9.5,1.72-1.72-4.5-4.5,4.5-4.5,4.5,4.5L20.22,13Z"></path></svg>
+                  <ChatGptIcon size={14} />
                   ChatGPT
                 </div>
                 <p className="font-medium text-gray-300">What's the best way to brew coffee at home? Give me the simple answer</p>
@@ -67,7 +68,7 @@ const MockupCompare = () => (
             </div>
              <div className="flex-1 bg-zinc-900/70 border border-zinc-800 rounded-lg p-3 text-xs text-gray-400 flex-col space-y-3 hidden sm:flex">
                 <div className="flex items-center gap-2 text-white font-medium border-b border-zinc-700 pb-2">
-                   <svg width="14" height="14" viewBox="0 0 24 24"><path fill="currentColor" d="M12,18.75L15.3,16.5L12,14.25L8.7,16.5L12,18.75M12,13.5L18.6,9.75L12,6L5.4,9.75L12,13.5M12,2L20,7L12,12L4,7L12,2Z"></path></svg>
+                   <DeepSeekIcon size={14} />
                    DeepSeek
                 </div>
                 <p className="font-medium text-gray-300">What's the best way to brew coffee at home? Give me the simple answer</p>
@@ -87,11 +88,11 @@ const MockupWindowFrame: React.FC<{children: React.ReactNode, footerContent?: Re
         <div className="flex-shrink-0 px-6 py-2 border-b border-gray-800 bg-black/20">
             <div className="flex items-center gap-6 text-sm text-gray-400 font-medium">
                 <span className="flex items-center gap-2 text-white">
-                  <svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M22.53,9.72,18,5.19,16.28,7,18,8.72,13.5,13.22,9,8.72l4.5-4.5L11.78,2.5,2.25,12l9.53,9.5,1.72-1.72-4.5-4.5,4.5-4.5,4.5,4.5L20.22,13Z"></path></svg>
+                  <ChatGptIcon size={16} />
                   ChatGPT
                 </span>
                 <span className="flex items-center gap-2 opacity-60">
-                  <svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M10,9V5L3,12L10,19V14.9C15,14.9 18.5,16.5 21,20C20,15 17,10 10,9Z"></path></svg>
+                  <GeminiIcon size={16} />
                   Gemini
                 </span>
             </div>
@@ -170,12 +171,12 @@ const featuresData = [
     {
         icon: (
             <div className="flex items-center gap-3 mb-8">
-                <ModelIcon><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg></ModelIcon>
-                <ModelIcon><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-3.125L5 18V4z" /></svg></ModelIcon>
-                <ModelIcon><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 2a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V4a2 2 0 00-2-2H4zm12 2H4v8h12V4z" clipRule="evenodd" /></svg></ModelIcon>
-                <ModelIcon><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13 7H7v6h6V7z" /><path fillRule="evenodd" d="M7 2a1 1 0 011-1h4a1 1 0 011 1v1h1a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h1V2zm2 2h2v1H9V4z" clipRule="evenodd" /></svg></ModelIcon>
-                <ModelIcon><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" /></svg></ModelIcon>
-                <ModelIcon><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" /></svg></ModelIcon>
+                <ChatGptIcon size={40} />
+                <GeminiIcon size={40} className="bg-zinc-800 border border-zinc-700 rounded-full text-zinc-400" />
+                <DeepSeekIcon size={40} />
+                <PerplexityIcon size={40} className="bg-zinc-800 border border-zinc-700 rounded-full p-1" />
+                <ClaudeIcon size={40} />
+                <GrokIcon size={40} />
             </div>
         ),
         title: "Compare All Premium AIs at Once",

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from '../components/chat/Sidebar';
 import ChatHeader from '../components/chat/ChatHeader';
 import PromptInput from '../components/chat/PromptInput';
-import { ChatGptIcon, GeminiIcon, DeepSeekIcon, PerplexityIcon, ClaudeIcon, GrokIcon } from '../components/chat/ModelIcons';
+import { ChatGptIcon, GeminiIcon, DeepSeekIcon, PerplexityIcon, ClaudeIcon, GrokIcon } from '../components/shared/ModelIcons';
 import ResponseWithCitations from '../components/chat/ResponseWithCitations';
 import { safePuterFs, getChatsDirForUser } from '../lib/puterUtils';
 import { User } from '../../App';

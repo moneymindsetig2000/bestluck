@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import FadeInSection from './FadeInSection';
+import { ChatGptIcon, DeepSeekIcon, GeminiIcon, PerplexityIcon } from './shared/ModelIcons';
 
 interface HeroProps {
   onLogin: () => Promise<void>;
@@ -83,19 +84,19 @@ const Hero: React.FC<HeroProps> = ({ onLogin }) => {
                 <div className="flex-shrink-0 px-6 py-2 border-b border-gray-800 bg-black/20">
                     <div className="flex items-center gap-6 text-sm text-gray-400 font-medium">
                         <span className="flex items-center gap-2 text-white">
-                          <svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M22.53,9.72,18,5.19,16.28,7,18,8.72,13.5,13.22,9,8.72l4.5-4.5L11.78,2.5,2.25,12l9.53,9.5,1.72-1.72-4.5-4.5,4.5-4.5,4.5,4.5L20.22,13Z"></path></svg>
+                          <ChatGptIcon size={16} />
                           ChatGPT
                         </span>
                         <span className="flex items-center gap-2 opacity-60">
-                          <svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M10,9V5L3,12L10,19V14.9C15,14.9 18.5,16.5 21,20C20,15 17,10 10,9Z"></path></svg>
+                          <GeminiIcon size={16} />
                           Gemini
                         </span>
                          <span className="flex items-center gap-2 opacity-60">
-                           <svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M12,18.75L15.3,16.5L12,14.25L8.7,16.5L12,18.75M12,13.5L18.6,9.75L12,6L5.4,9.75L12,13.5M12,2L20,7L12,12L4,7L12,2Z"></path></svg>
+                           <DeepSeekIcon size={16} />
                            DeepSeek
                          </span>
                          <span className="flex items-center gap-2 opacity-60">
-                           <svg width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12H18A6,6 0 0,0 12,6V4M4,12A8,8 0 0,1 12,4V6A6,6 0 0,0 6,12H4M12,20A8,8 0 0,1 4,12H6A6,6 0 0,0 12,18V20M20,12A8,8 0 0,1 12,20V18A6,6 0 0,0 18,12H20Z"></path></svg>
+                           <PerplexityIcon size={16} />
                            Perplexity
                          </span>
                     </div>
