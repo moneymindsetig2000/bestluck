@@ -4,7 +4,7 @@ import ChatHeader from '../components/chat/ChatHeader';
 import PromptInput from '../components/chat/PromptInput';
 import { ChatGptIcon, GeminiIcon, DeepSeekIcon, PerplexityIcon, ClaudeIcon, GrokIcon } from '../components/shared/ModelIcons';
 import ResponseWithCitations from '../components/chat/ResponseWithCitations';
-import { safePuterFs, getChatsDirForUser } from '../lib/puterUtils';
+import { safePuterFs, getChatsDirForUser, getSettingsDirForUser } from '../lib/puterUtils';
 import { User } from '../../App';
 
 declare global {
@@ -51,6 +51,12 @@ interface ChatDocument {
   lastUpdatedAt: string;
 }
 
+interface TokenUsage {
+  used: number;
+  limit: number;
+  resetsOn: string;
+}
+
 const initialModels: ModelConfig[] = [
   { name: 'ChatGPT', icon: <ChatGptIcon />, enabled: true, puterModel: 'openrouter:openai/gpt-4.1' },
   { name: 'Gemini', icon: <GeminiIcon />, enabled: true, puterModel: 'openrouter:google/gemini-2.5-flash' },
@@ -93,9 +99,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
   const [chatToDelete, setChatToDelete] = useState<ChatSession | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [activeSettingTab, setActiveSettingTab] = useState('subscription');
+  const [tokenUsage, setTokenUsage] = useState<TokenUsage>({ used: 0, limit: 18_000_000, resetsOn: new Date().toISOString() });
 
 
   const prevLoadingStatesRef = useRef<Record<string, boolean>>({});
+  const tokensThisTurnRef = useRef(0);
   
   const saveChat = useCallback(async (chatId: string) => {
     if (!chatId) return;
@@ -167,69 +175,92 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
 
         console.log('Authenticated Puter User for FS:', { uuid: currentPuterUser.uuid, uid: currentPuterUser.uid, sub: currentPuterUser.sub });
         
+        // Load Chat History
         const userChatsDir = getChatsDirForUser(currentPuterUser);
         console.log('Resolved chats directory to access:', userChatsDir);
-        
         await safePuterFs.mkdir(userChatsDir, { createMissingParents: true });
-  
         const files = await safePuterFs.readdir(userChatsDir);
         const chatFiles = (Array.isArray(files) ? files : []).filter((f: any) => f && f.name && f.name.endsWith('.json'));
-  
-        if (chatFiles.length === 0) {
-          setActiveChatId(null);
-          setResponses({});
-          setChatSessions([]);
-          return;
-        }
-  
-        const sessionsPromises = chatFiles.map(async (file: any) => {
-          try {
-            const blob = await safePuterFs.read(`${userChatsDir}/${file.name}`);
-            const content = await blob.text();
-            if (!content) return null;
-            const data = JSON.parse(content);
-            return {
-              id: file.name.replace('.json', ''),
-              title: data.title,
-              createdAt: data.createdAt,
-              lastUpdatedAt: data.lastUpdatedAt,
-            } as ChatSession;
-          } catch (e) {
-            console.error(`Failed to read/parse chat file ${file.name}`, e);
-            return null;
-          }
-        });
-  
-        let sessions = (await Promise.all(sessionsPromises)).filter(Boolean) as ChatSession[];
-        sessions.sort((a, b) => new Date(b.lastUpdatedAt).getTime() - new Date(a.lastUpdatedAt).getTime());
-        setChatSessions(sessions);
-  
-        if (sessions.length > 0) {
-          const mostRecentId = sessions[0].id;
-          setActiveChatId(mostRecentId);
-          try {
+        if (chatFiles.length > 0) {
+          const sessionsPromises = chatFiles.map(async (file: any) => {
+            try {
+              const blob = await safePuterFs.read(`${userChatsDir}/${file.name}`);
+              const content = await blob.text();
+              if (content) {
+                const data = JSON.parse(content) as ChatDocument;
+                return {
+                  id: data.id,
+                  title: data.title,
+                  createdAt: data.createdAt,
+                  lastUpdatedAt: data.lastUpdatedAt,
+                };
+              }
+              return null;
+            } catch (error) {
+              console.error(`Failed to load chat session from ${file.name}:`, error);
+              return null;
+            }
+          });
+          let sessions = (await Promise.all(sessionsPromises)).filter(Boolean) as ChatSession[];
+          sessions.sort((a, b) => new Date(b.lastUpdatedAt).getTime() - new Date(a.lastUpdatedAt).getTime());
+          setChatSessions(sessions);
+    
+          if (sessions.length > 0) {
+            const mostRecentId = sessions[0].id;
+            setActiveChatId(mostRecentId);
             const blob = await safePuterFs.read(`${userChatsDir}/${mostRecentId}.json`);
             const content = await blob.text();
             if (content) {
               const chatData = JSON.parse(content) as ChatDocument;
               setResponses(chatData.history || {});
-            } else {
-              setResponses({});
             }
-          } catch (readErr) {
-            console.error(`Failed to read most recent chat (${mostRecentId}):`, readErr);
-            setResponses({});
           }
-        } else {
-          setActiveChatId(null);
-          setResponses({});
         }
+
+        // Load or Initialize Token Usage
+        const userSettingsDir = getSettingsDirForUser(currentPuterUser);
+        const usageFilePath = `${userSettingsDir}/usage.json`;
+        await safePuterFs.mkdir(userSettingsDir, { createMissingParents: true });
+
+        let usageData: TokenUsage;
+        try {
+            const blob = await safePuterFs.read(usageFilePath);
+            const content = await blob.text();
+            usageData = JSON.parse(content);
+
+            const now = new Date();
+            const resetsOn = new Date(usageData.resetsOn);
+            if (now > resetsOn) {
+                usageData.used = 0;
+                const nextReset = new Date(now);
+                nextReset.setMonth(nextReset.getMonth() + 1);
+                nextReset.setDate(1);
+                nextReset.setHours(0, 0, 0, 0);
+                usageData.resetsOn = nextReset.toISOString();
+                await safePuterFs.write(usageFilePath, JSON.stringify(usageData, null, 2));
+            }
+        } catch (e) {
+            const now = new Date();
+            const nextReset = new Date(now);
+            nextReset.setMonth(nextReset.getMonth() + 1);
+            nextReset.setDate(1);
+            nextReset.setHours(0, 0, 0, 0);
+
+            usageData = {
+                used: 0,
+                limit: 18000000,
+                resetsOn: nextReset.toISOString(),
+            };
+            await safePuterFs.write(usageFilePath, JSON.stringify(usageData, null, 2));
+        }
+        setTokenUsage(usageData);
+
       } catch (error: any) {
-        console.error('Failed to load chat sessions from Puter:', error);
+        console.error('Failed to load initial data from Puter:', error);
         if (error?.code === 'permission_denied' || error?.status === 403) {
-          setDbError("Permission denied. Could not access chat history. Please try signing out and in again.");
+          setDbError("Permission denied. Could not access your data. Please try signing out and in again.");
         } else {
-          setDbError('Error loading chat history from Puter.');
+          setDbError('Error loading data from Puter.');
         }
       }
     };
@@ -241,10 +272,29 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
     const isNowLoading = Object.values(loadingStates).some(Boolean);
     prevLoadingStatesRef.current = loadingStates;
 
-    if (wasLoading && !isNowLoading && activeChatId) {
-        saveChat(activeChatId);
+    if (wasLoading && !isNowLoading) {
+        if (activeChatId) {
+            saveChat(activeChatId);
+        }
+
+        if (tokensThisTurnRef.current > 0 && user) {
+            const newTotalUsed = tokenUsage.used + tokensThisTurnRef.current;
+            const newUsageData = { ...tokenUsage, used: newTotalUsed };
+            setTokenUsage(newUsageData);
+
+            const saveUsage = async () => {
+                const currentUser = await window.puter.auth.getUser();
+                if (currentUser) {
+                    const userSettingsDir = getSettingsDirForUser(currentUser);
+                    const usageFilePath = `${userSettingsDir}/usage.json`;
+                    await safePuterFs.write(usageFilePath, JSON.stringify(newUsageData, null, 2));
+                }
+            };
+            saveUsage();
+            tokensThisTurnRef.current = 0;
+        }
     }
-  }, [loadingStates, activeChatId, saveChat]);
+  }, [loadingStates, activeChatId, saveChat, user, tokenUsage]);
 
   const handleToggleExpand = (modelName: string) => {
     setExpandedModel(prev => (prev === modelName ? null : modelName));
@@ -330,7 +380,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
 
   const streamResponseForModel = async (prompt: string, model: ModelConfig) => {
     if (!model.puterModel) return;
-
+    let accumulatedText = '';
     try {
       const responseStream = await window.puter.ai.chat(prompt, {
         model: model.puterModel,
@@ -346,6 +396,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
 
           if (part?.text) {
             lastResponse.answer += part.text;
+            accumulatedText += part.text;
           }
 
           if (part?.sources && Array.isArray(part.sources) && part.sources.length > 0) {
@@ -375,11 +426,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
          return { ...prev, [model.name]: modelHistory };
       });
     } finally {
+      const tokensUsed = Math.ceil(accumulatedText.length / 4);
+      tokensThisTurnRef.current += tokensUsed;
       setLoadingStates(prev => ({ ...prev, [model.name]: false }));
     }
   };
 
   const handleSend = async (prompt: string) => {
+    tokensThisTurnRef.current = 0;
     let chatIdToUse = activeChatId;
     const isNewChat = !chatIdToUse;
 
@@ -582,6 +636,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
                   <span>Subscription</span>
                 </button>
                 <button
+                  onClick={() => setActiveSettingTab('credit')}
+                  className={`flex items-center gap-3 w-full text-left p-3 rounded-lg text-sm font-medium transition-colors ${activeSettingTab === 'credit' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M3 12v3c0 1.657 3.134 3 7 3s7-1.343 7-3v-3c0 1.657-3.134 3-7 3s-7-1.343-7-3z" />
+                    <path d="M3 7v3c0 1.657 3.134 3 7 3s7-1.343 7-3V7c0 1.657-3.134 3-7 3S3 8.657 3 7z" />
+                    <path d="M17 5c0 1.657-3.134 3-7 3S3 6.657 3 5s3.134-3 7-3 7 1.343 7 3z" />
+                  </svg>
+                  <span>Credit Usage</span>
+                </button>
+                <button
                   onClick={() => setActiveSettingTab('account')}
                   className={`flex items-center gap-3 w-full text-left p-3 rounded-lg text-sm font-medium transition-colors ${activeSettingTab === 'account' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}
                 >
@@ -625,6 +690,28 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
                       </button>
                     </div>
                   </div>
+                </div>
+              )}
+              {activeSettingTab === 'credit' && (
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-6">Credit Usage</h3>
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                      <div className="flex justify-between items-baseline mb-2">
+                        <span className="text-sm font-medium text-zinc-400">Monthly Token Usage</span>
+                        <span className="text-sm font-mono text-zinc-300">
+                          {tokenUsage.used.toLocaleString()} / {tokenUsage.limit.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="w-full bg-zinc-700 rounded-full h-2.5 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-teal-400 to-green-500 h-2.5 rounded-full transition-all duration-500" 
+                          style={{ width: `${Math.min((tokenUsage.used / tokenUsage.limit) * 100, 100)}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-xs text-zinc-500 mt-3 text-right">
+                        {tokenUsage.resetsOn ? `Your balance resets on ${new Date(tokenUsage.resetsOn).toLocaleDateString()}` : 'Calculating reset date...'}
+                      </p>
+                    </div>
                 </div>
               )}
               {activeSettingTab === 'account' && (

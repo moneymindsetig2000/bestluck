@@ -194,3 +194,13 @@ export const getChatsDirForUser = (user: { uid?: string; uuid?: string; sub?: st
   // This resolves the "403 Forbidden" error caused by trying to access an absolute path like '/users/...'.
   return 'chats';
 };
+
+export const getSettingsDirForUser = (user: { uid?: string; uuid?: string; sub?: string } | null) => {
+  if (!user) return '/tmp/ai-clavis-clone/settings';
+  const uid = user.uuid || user.uid || user.sub;
+  if (!uid) {
+    console.error("Could not determine user ID for settings path.");
+    return `/tmp/ai-clavis-clone/settings_${Date.now()}`;
+  }
+  return '_settings';
+};
