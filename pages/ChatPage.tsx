@@ -224,11 +224,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
         const usageFilePath = `${userSettingsDir}/usage.json`;
         await safePuterFs.mkdir(userSettingsDir, { createMissingParents: true });
 
-        let usageData: TokenUsage;
         try {
             const blob = await safePuterFs.read(usageFilePath);
             const content = await blob.text();
-            usageData = JSON.parse(content);
+            
+            // JSON.parse on an empty string throws an error, which will be caught below.
+            let usageData = JSON.parse(content);
 
             const now = new Date();
             const resetsOn = new Date(usageData.resetsOn);
@@ -241,21 +242,33 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
                 usageData.resetsOn = nextReset.toISOString();
                 await safePuterFs.write(usageFilePath, JSON.stringify(usageData, null, 2));
             }
-        } catch (e) {
-            const now = new Date();
-            const nextReset = new Date(now);
-            nextReset.setMonth(nextReset.getMonth() + 1);
-            nextReset.setDate(1);
-            nextReset.setHours(0, 0, 0, 0);
+            setTokenUsage(usageData);
+        } catch (e: any) {
+            // "subject_does_not_exist" is from Puter. Other errors could be from JSON.parse (empty/malformed file).
+            // Both cases indicate we need to create a fresh usage file.
+            if (e?.code === 'subject_does_not_exist' || e instanceof SyntaxError) {
+                console.log("No valid usage data found, initializing new record.", e.message);
+                const now = new Date();
+                const nextReset = new Date(now);
+                nextReset.setMonth(nextReset.getMonth() + 1);
+                nextReset.setDate(1);
+                nextReset.setHours(0, 0, 0, 0);
 
-            usageData = {
-                used: 0,
-                limit: 18000000,
-                resetsOn: nextReset.toISOString(),
-            };
-            await safePuterFs.write(usageFilePath, JSON.stringify(usageData, null, 2));
+                const newUsageData: TokenUsage = {
+                    used: 0,
+                    limit: 18000000,
+                    resetsOn: nextReset.toISOString(),
+                };
+                await safePuterFs.write(usageFilePath, JSON.stringify(newUsageData, null, 2));
+                setTokenUsage(newUsageData);
+            } else {
+                // An unexpected network or other error occurred.
+                console.error('Failed to load token usage from Puter:', e);
+                setDbError('Error loading token usage data. Usage will not be tracked correctly this session.');
+                // We fall back to the default state but crucially, we DO NOT write back to the filesystem,
+                // preventing the overwriting of potentially valid data.
+            }
         }
-        setTokenUsage(usageData);
 
       } catch (error: any) {
         console.error('Failed to load initial data from Puter:', error);
