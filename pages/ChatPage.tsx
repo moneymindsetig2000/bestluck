@@ -13,6 +13,14 @@ declare global {
   }
 }
 
+const formatDateTime = (isoString: string) => {
+    if (!isoString) return 'Calculating...';
+    return new Date(isoString).toLocaleString(undefined, {
+        year: 'numeric', month: 'long', day: 'numeric',
+        hour: 'numeric', minute: '2-digit', hour12: true,
+    });
+};
+
 interface ChatPageProps {
   user: User;
   onLogout: () => void;
@@ -54,6 +62,7 @@ interface ChatDocument {
 interface TokenUsage {
   used: number;
   limit: number;
+  cycleStartedOn: string;
   resetsOn: string;
 }
 
@@ -99,7 +108,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
   const [chatToDelete, setChatToDelete] = useState<ChatSession | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [activeSettingTab, setActiveSettingTab] = useState('subscription');
-  const [tokenUsage, setTokenUsage] = useState<TokenUsage>({ used: 0, limit: 18_000_000, resetsOn: new Date().toISOString() });
+  const [tokenUsage, setTokenUsage] = useState<TokenUsage>({ used: 0, limit: 18_000_000, cycleStartedOn: '', resetsOn: '' });
   const [showOutOfTokensModal, setShowOutOfTokensModal] = useState(false);
 
   const isOutOfTokens = tokenUsage.used >= tokenUsage.limit;
@@ -228,45 +237,57 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
             const blob = await safePuterFs.read(usageFilePath);
             const content = await blob.text();
             
-            // JSON.parse on an empty string throws an error, which will be caught below.
-            let usageData = JSON.parse(content);
+            let usageData: TokenUsage = JSON.parse(content);
 
             const now = new Date();
-            const resetsOn = new Date(usageData.resetsOn);
+            let resetsOn = new Date(usageData.resetsOn);
+
             if (now > resetsOn) {
-                usageData.used = 0;
-                const nextReset = new Date(now);
-                nextReset.setMonth(nextReset.getMonth() + 1);
-                nextReset.setDate(1);
-                nextReset.setHours(0, 0, 0, 0);
-                usageData.resetsOn = nextReset.toISOString();
+                // The cycle has expired. Reset tokens and calculate the new cycle period.
+                let lastResetDate = new Date(usageData.resetsOn);
+                
+                // Fast-forward to the current cycle if the user was inactive
+                while (new Date() > lastResetDate) {
+                    lastResetDate.setMonth(lastResetDate.getMonth() + 1);
+                }
+
+                const newCycleStart = new Date(lastResetDate);
+                newCycleStart.setMonth(newCycleStart.getMonth() - 1);
+
+                usageData = {
+                    ...usageData,
+                    used: 0,
+                    cycleStartedOn: newCycleStart.toISOString(),
+                    resetsOn: lastResetDate.toISOString(),
+                };
+
                 await safePuterFs.write(usageFilePath, JSON.stringify(usageData, null, 2));
+            } else if (!usageData.cycleStartedOn) {
+                // Backward compatibility: If cycleStartedOn is missing, calculate it from resetsOn.
+                const cycleStart = new Date(usageData.resetsOn);
+                cycleStart.setMonth(cycleStart.getMonth() - 1);
+                usageData.cycleStartedOn = cycleStart.toISOString();
             }
+
             setTokenUsage(usageData);
         } catch (e: any) {
-            // "subject_does_not_exist" is from Puter. Other errors could be from JSON.parse (empty/malformed file).
-            // Both cases indicate we need to create a fresh usage file.
             if (e?.code === 'subject_does_not_exist' || e instanceof SyntaxError) {
                 console.log("No valid usage data found, initializing new record.", e.message);
                 const now = new Date();
                 const nextReset = new Date(now);
                 nextReset.setMonth(nextReset.getMonth() + 1);
-                nextReset.setDate(1);
-                nextReset.setHours(0, 0, 0, 0);
 
                 const newUsageData: TokenUsage = {
                     used: 0,
                     limit: 18000000,
+                    cycleStartedOn: now.toISOString(),
                     resetsOn: nextReset.toISOString(),
                 };
                 await safePuterFs.write(usageFilePath, JSON.stringify(newUsageData, null, 2));
                 setTokenUsage(newUsageData);
             } else {
-                // An unexpected network or other error occurred.
                 console.error('Failed to load token usage from Puter:', e);
                 setDbError('Error loading token usage data. Usage will not be tracked correctly this session.');
-                // We fall back to the default state but crucially, we DO NOT write back to the filesystem,
-                // preventing the overwriting of potentially valid data.
             }
         }
 
@@ -719,7 +740,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
                        {isOutOfTokens && (
                           <div className="mb-4 text-center bg-red-900/50 border border-red-500/50 text-red-300 p-3 rounded-lg text-sm">
                               <p className="font-bold">Your monthly token limit is finished!</p>
-                              <p className="mt-1">Your access will be restored on {new Date(tokenUsage.resetsOn).toLocaleDateString()}.</p>
+                              <p className="mt-1">Your access will be restored around {formatDateTime(tokenUsage.resetsOn)}.</p>
                           </div>
                       )}
                       <div className="flex justify-between items-baseline mb-2">
@@ -734,9 +755,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
                           style={{ width: `${Math.min((tokenUsage.used / tokenUsage.limit) * 100, 100)}%` }}
                         ></div>
                       </div>
-                      <p className="text-xs text-zinc-500 mt-3 text-right">
-                        {tokenUsage.resetsOn ? `Your balance resets on ${new Date(tokenUsage.resetsOn).toLocaleDateString()}` : 'Calculating reset date...'}
-                      </p>
+                      <div className="text-xs text-zinc-500 mt-3 text-right space-y-1">
+                        <p>
+                          Cycle active from: <span className="font-medium text-zinc-400">{formatDateTime(tokenUsage.cycleStartedOn)}</span>
+                        </p>
+                        <p>
+                          Your balance resets on: <span className="font-medium text-zinc-400">{formatDateTime(tokenUsage.resetsOn)}</span>
+                        </p>
+                      </div>
                     </div>
                 </div>
               )}
@@ -783,7 +809,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
           <div className="bg-[#171717] p-8 rounded-2xl border border-zinc-800 text-center max-w-sm shadow-lg relative">
             <h2 className="text-xl font-bold text-yellow-400 mb-2">Token Limit Reached</h2>
             <p className="text-zinc-400 mb-6">
-              You have used all your available tokens for this month. Your limit will reset on {new Date(tokenUsage.resetsOn).toLocaleDateString()}.
+              You have used all your available tokens for this month. Your limit will reset around {formatDateTime(tokenUsage.resetsOn)}.
             </p>
             <div className="flex justify-center">
               <button
