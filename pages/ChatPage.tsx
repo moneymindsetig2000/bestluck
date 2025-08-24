@@ -800,5 +800,4 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
     </div>
   );
 };
-
 export default ChatPage;
