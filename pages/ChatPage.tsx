@@ -100,7 +100,9 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [activeSettingTab, setActiveSettingTab] = useState('subscription');
   const [tokenUsage, setTokenUsage] = useState<TokenUsage>({ used: 0, limit: 18_000_000, resetsOn: new Date().toISOString() });
+  const [showOutOfTokensModal, setShowOutOfTokensModal] = useState(false);
 
+  const isOutOfTokens = tokenUsage.used >= tokenUsage.limit;
 
   const prevLoadingStatesRef = useRef<Record<string, boolean>>({});
   const tokensThisTurnRef = useRef(0);
@@ -433,6 +435,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
   };
 
   const handleSend = async (prompt: string) => {
+    if (isOutOfTokens) {
+      setShowOutOfTokensModal(true);
+      return;
+    }
+
     tokensThisTurnRef.current = 0;
     let chatIdToUse = activeChatId;
     const isNewChat = !chatIdToUse;
@@ -583,7 +590,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
             {dbError}
           </div>
         )}
-        <PromptInput onSend={handleSend} isLoading={isAnyModelLoading} isSignedIn={!!user} />
+        <PromptInput onSend={handleSend} isLoading={isAnyModelLoading} isSignedIn={!!user} isOutOfTokens={isOutOfTokens} />
       </div>
 
       {chatToDelete && (
@@ -696,6 +703,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
                 <div>
                   <h3 className="text-2xl font-bold text-white mb-6">Credit Usage</h3>
                     <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                       {isOutOfTokens && (
+                          <div className="mb-4 text-center bg-red-900/50 border border-red-500/50 text-red-300 p-3 rounded-lg text-sm">
+                              <p className="font-bold">Your monthly token limit is finished!</p>
+                              <p className="mt-1">Your access will be restored on {new Date(tokenUsage.resetsOn).toLocaleDateString()}.</p>
+                          </div>
+                      )}
                       <div className="flex justify-between items-baseline mb-2">
                         <span className="text-sm font-medium text-zinc-400">Monthly Token Usage</span>
                         <span className="text-sm font-mono text-zinc-300">
@@ -747,6 +760,25 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showOutOfTokensModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-[#171717] p-8 rounded-2xl border border-zinc-800 text-center max-w-sm shadow-lg relative">
+            <h2 className="text-xl font-bold text-yellow-400 mb-2">Token Limit Reached</h2>
+            <p className="text-zinc-400 mb-6">
+              You have used all your available tokens for this month. Your limit will reset on {new Date(tokenUsage.resetsOn).toLocaleDateString()}.
+            </p>
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowOutOfTokensModal(false)}
+                className="px-8 py-2 rounded-full bg-zinc-700 text-white font-semibold hover:bg-zinc-600 transition-colors"
+              >
+                Got it
+              </button>
             </div>
           </div>
         </div>
