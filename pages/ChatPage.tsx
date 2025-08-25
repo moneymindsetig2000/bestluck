@@ -110,6 +110,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
   const [activeSettingTab, setActiveSettingTab] = useState('subscription');
   const [tokenUsage, setTokenUsage] = useState<TokenUsage>({ used: 0, limit: 18_000_000, cycleStartedOn: '', resetsOn: '' });
   const [showOutOfTokensModal, setShowOutOfTokensModal] = useState(false);
+  const [requestTokenLimitHit, setRequestTokenLimitHit] = useState(false);
+
 
   const isOutOfTokens = tokenUsage.used >= tokenUsage.limit;
 
@@ -416,7 +418,21 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
 
   const streamResponseForModel = async (prompt: string, model: ModelConfig) => {
     if (!model.puterModel) return;
-    let accumulatedText = '';
+
+    const MAX_TOKENS_PER_REQUEST = 1000;
+    // Simple token estimation: 1 token ~= 4 characters
+    const promptTokens = Math.ceil(prompt.length / 4);
+    let outputTokens = 0;
+
+    // Immediately stop if the prompt itself is over the limit.
+    if (promptTokens >= MAX_TOKENS_PER_REQUEST) {
+        setRequestTokenLimitHit(true);
+        setLoadingStates(prev => ({ ...prev, [model.name]: false }));
+        // Response is already initialized as empty, so we just stop here.
+        return;
+    }
+
+    let accumulatedTextForThisRequest = '';
     try {
       const responseStream = await window.puter.ai.chat(prompt, {
         model: model.puterModel,
@@ -424,56 +440,79 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
       });
 
       for await (const part of responseStream) {
-        setResponses(prev => {
-          const modelHistory = prev[model.name] ? [...prev[model.name]] : [];
-          if (modelHistory.length === 0) return prev;
+        let partText = part?.text || '';
+        if (partText) {
+            const potentialNewOutputTokens = outputTokens + Math.ceil(partText.length / 4);
+            
+            // Check if this chunk will exceed the total token limit
+            if (promptTokens + potentialNewOutputTokens >= MAX_TOKENS_PER_REQUEST) {
+                const remainingTokens = MAX_TOKENS_PER_REQUEST - (promptTokens + outputTokens);
+                const allowedChars = Math.max(0, remainingTokens * 4);
+                partText = partText.substring(0, allowedChars);
+                setRequestTokenLimitHit(true);
+            }
 
-          const lastResponse = { ...modelHistory[modelHistory.length - 1] };
-
-          if (part?.text) {
-            lastResponse.answer += part.text;
-            accumulatedText += part.text;
-          }
-
-          if (part?.sources && Array.isArray(part.sources) && part.sources.length > 0) {
-            const formattedSources = part.sources
-              .filter((s: any) => s)
-              .map((s: any) => ({
-                title: s.title || 'Source',
-                url: s.url || s.uri || '#',
-              }));
-            lastResponse.sources = (lastResponse.sources || []).concat(formattedSources);
-          }
-
-          modelHistory[modelHistory.length - 1] = lastResponse;
-          return { ...prev, [model.name]: modelHistory };
-        });
+            // Append the (potentially truncated) text to the response
+            if (partText) {
+                setResponses(prev => {
+                    const modelHistory = prev[model.name] ? [...prev[model.name]] : [];
+                    if (modelHistory.length === 0) return prev;
+                    const lastResponse = { ...modelHistory[modelHistory.length - 1] };
+                    lastResponse.answer += partText;
+                    modelHistory[modelHistory.length - 1] = lastResponse;
+                    return { ...prev, [model.name]: modelHistory };
+                });
+                accumulatedTextForThisRequest += partText;
+                outputTokens += Math.ceil(partText.length / 4);
+            }
+        }
+        
+        // Handle sources, which don't count towards the text token limit
+        if (part?.sources && Array.isArray(part.sources) && part.sources.length > 0) {
+            setResponses(prev => {
+                const modelHistory = prev[model.name] ? [...prev[model.name]] : [];
+                if (modelHistory.length === 0) return prev;
+                const lastResponse = { ...modelHistory[modelHistory.length - 1] };
+                const formattedSources = part.sources
+                  .filter((s: any) => s)
+                  .map((s: any) => ({ title: s.title || 'Source', url: s.url || s.uri || '#' }));
+                lastResponse.sources = (lastResponse.sources || []).concat(formattedSources);
+                modelHistory[modelHistory.length - 1] = lastResponse;
+                return { ...prev, [model.name]: modelHistory };
+            });
+        }
+        
+        // If we've hit the limit, break the loop to stop receiving more data
+        if (promptTokens + outputTokens >= MAX_TOKENS_PER_REQUEST) {
+            break;
+        }
       }
     } catch (error) {
       console.error(`Error streaming from ${model.name}:`, error);
       setResponses(prev => {
          const modelHistory = prev[model.name] ? [...prev[model.name]] : [];
          if (modelHistory.length === 0) return prev;
-
          const lastResponse = { ...modelHistory[modelHistory.length - 1] };
          lastResponse.answer += "\n\n[Error: Could not get response.]";
          modelHistory[modelHistory.length - 1] = lastResponse;
-
          return { ...prev, [model.name]: modelHistory };
       });
     } finally {
-      const tokensUsed = Math.ceil(accumulatedText.length / 4);
-      tokensThisTurnRef.current += tokensUsed;
+      // Track total tokens (prompt + output) for this request for the monthly usage limit
+      const totalTokensUsedInRequest = promptTokens + outputTokens;
+      tokensThisTurnRef.current += totalTokensUsedInRequest;
       setLoadingStates(prev => ({ ...prev, [model.name]: false }));
     }
   };
+
 
   const handleSend = async (prompt: string) => {
     if (isOutOfTokens) {
       setShowOutOfTokensModal(true);
       return;
     }
-
+    
+    setRequestTokenLimitHit(false);
     tokensThisTurnRef.current = 0;
     let chatIdToUse = activeChatId;
     const isNewChat = !chatIdToUse;
@@ -622,6 +661,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
         {dbError && (
           <div className="flex-shrink-0 p-2 text-center bg-red-900/50 text-red-300 text-sm border-t border-zinc-800">
             {dbError}
+          </div>
+        )}
+        {requestTokenLimitHit && (
+          <div className="flex-shrink-0 p-2 text-center bg-yellow-900/50 text-yellow-300 text-sm border-t border-zinc-800 animate-fade-in">
+            Maximum token limit hit for per request.
           </div>
         )}
         <PromptInput onSend={handleSend} isLoading={isAnyModelLoading} isSignedIn={!!user} isOutOfTokens={isOutOfTokens} />
