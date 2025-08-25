@@ -110,7 +110,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
   const [activeSettingTab, setActiveSettingTab] = useState('subscription');
   const [tokenUsage, setTokenUsage] = useState<TokenUsage>({ used: 0, limit: 18_000_000, cycleStartedOn: '', resetsOn: '' });
   const [showOutOfTokensModal, setShowOutOfTokensModal] = useState(false);
-  const [requestTokenLimitHit, setRequestTokenLimitHit] = useState(false);
+  const [requestTokenLimitHit, setRequestTokenLimitHit] = useState<Record<string, boolean>>({});
 
 
   const isOutOfTokens = tokenUsage.used >= tokenUsage.limit;
@@ -426,7 +426,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
 
     // Immediately stop if the prompt itself is over the limit.
     if (promptTokens >= MAX_TOKENS_PER_REQUEST) {
-        setRequestTokenLimitHit(true);
+        setRequestTokenLimitHit(prev => ({...prev, [model.name]: true}));
         setLoadingStates(prev => ({ ...prev, [model.name]: false }));
         // Response is already initialized as empty, so we just stop here.
         return;
@@ -449,7 +449,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
                 const remainingTokens = MAX_TOKENS_PER_REQUEST - (promptTokens + outputTokens);
                 const allowedChars = Math.max(0, remainingTokens * 4);
                 partText = partText.substring(0, allowedChars);
-                setRequestTokenLimitHit(true);
+                setRequestTokenLimitHit(prev => ({...prev, [model.name]: true}));
             }
 
             // Append the (potentially truncated) text to the response
@@ -512,7 +512,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
       return;
     }
     
-    setRequestTokenLimitHit(false);
+    setRequestTokenLimitHit({});
     tokensThisTurnRef.current = 0;
     let chatIdToUse = activeChatId;
     const isNewChat = !chatIdToUse;
@@ -630,6 +630,13 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
                               {loadingStates[model.name] && index === responses[model.name].length - 1 && <span className="inline-block w-2 h-4 bg-white ml-1 animate-pulse" />}
                             </div>
                           </div>
+                           {index === responses[model.name].length - 1 && requestTokenLimitHit[model.name] && !loadingStates[model.name] && (
+                            <div className="flex justify-center">
+                              <div className="p-2 text-center bg-yellow-900/50 text-yellow-300 text-sm rounded-lg w-fit px-4 animate-fade-in">
+                                Maximum token limit hit for request.
+                              </div>
+                            </div>
+                          )}
                         </React.Fragment>
                       ))}
                     </div>
@@ -661,11 +668,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
         {dbError && (
           <div className="flex-shrink-0 p-2 text-center bg-red-900/50 text-red-300 text-sm border-t border-zinc-800">
             {dbError}
-          </div>
-        )}
-        {requestTokenLimitHit && (
-          <div className="flex-shrink-0 p-2 text-center bg-yellow-900/50 text-yellow-300 text-sm border-t border-zinc-800 animate-fade-in">
-            Maximum token limit hit for per request.
           </div>
         )}
         <PromptInput onSend={handleSend} isLoading={isAnyModelLoading} isSignedIn={!!user} isOutOfTokens={isOutOfTokens} />
