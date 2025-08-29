@@ -41,8 +41,14 @@ interface Source {
   url: string;
 }
 
+interface ImagePayload {
+  mimeType: string;
+  data: string;
+}
+
 interface Response {
   prompt: string;
+  images?: ImagePayload[];
   answer: string;
   sources?: Source[];
 }
@@ -104,6 +110,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
   const [chatToDelete, setChatToDelete] = useState<ChatSession | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [activeSettingTab, setActiveSettingTab] = useState('subscription');
+  const [notification, setNotification] = useState<string | null>(null);
 
   const prevLoadingStatesRef = useRef<Record<string, boolean>>({});
   
@@ -242,6 +249,15 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
     }
   }, [loadingStates, activeChatId, saveChat]);
 
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
   const handleToggleExpand = (modelName: string) => {
     setExpandedModel(prev => (prev === modelName ? null : modelName));
   };
@@ -322,8 +338,18 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
       setChatToDelete(null); // Close the modal
     }
   };
+  
+  const handleImagesChange = (files: File[]) => {
+    if (files.length > 0) {
+      const deepSeekModel = modelConfigs.find(m => m.name === 'DeepSeek');
+      if (deepSeekModel && deepSeekModel.enabled) {
+        setModelConfigs(prev => prev.map(m => m.name === 'DeepSeek' ? { ...m, enabled: false } : m));
+        setNotification('DeepSeek does not support images and has been disabled.');
+      }
+    }
+  };
 
-  const streamResponseForModel = async (prompt: string, model: ModelConfig) => {
+  const streamResponseForModel = async (prompt: string, images: ImagePayload[], model: ModelConfig) => {
     try {
       const response = await fetch(BACKEND_URL, {
         method: 'POST',
@@ -332,6 +358,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
         },
         body: JSON.stringify({
           prompt: prompt,
+          images: images,
           modelName: model.name,
         }),
       });
@@ -405,7 +432,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
     }
   };
 
-  const handleSend = async (prompt: string) => {
+  const handleSend = async (prompt: string, images: ImagePayload[]) => {
     if (BACKEND_URL.includes("your-project-name")) {
         alert("Backend URL is not configured. Please edit `pages/ChatPage.tsx` and set the `BACKEND_URL` constant to your Deno Deploy URL.");
         return;
@@ -416,7 +443,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
 
     if (isNewChat) {
       chatIdToUse = crypto.randomUUID();
-      const newTitle = createTitleFromPrompt(prompt);
+      const newTitle = createTitleFromPrompt(prompt || 'Image Query');
       const now = new Date().toISOString();
       const newSession: ChatSession = { id: chatIdToUse, title: newTitle, createdAt: now, lastUpdatedAt: now };
       setActiveChatId(chatIdToUse);
@@ -442,7 +469,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
       const nextResponses = { ...responsesForThisChat };
       targetModels.forEach(model => {
         const history = nextResponses[model.name] || [];
-        nextResponses[model.name] = [...history, { prompt, answer: '', sources: [] }];
+        nextResponses[model.name] = [...history, { prompt, images, answer: '', sources: [] }];
       });
       return nextResponses;
     });
@@ -454,7 +481,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
     setLoadingStates(updatedLoadingStates);
 
     targetModels.forEach(model => {
-      streamResponseForModel(prompt, model);
+      streamResponseForModel(prompt, images, model);
     });
   };
 
@@ -474,7 +501,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
         onHelpClick={() => setShowHelpModal(true)}
       />
       <div 
-        className="flex flex-1 flex-col overflow-hidden"
+        className="flex flex-1 flex-col overflow-hidden relative"
       >
         <main className="flex flex-1 overflow-x-auto">
           {modelConfigs.map((model) => {
@@ -507,8 +534,13 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
                         <React.Fragment key={index}>
                           <div className="flex items-start gap-4">
                             <UserIcon />
-                            <div className="flex-1 bg-black/30 rounded-lg p-3 text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed">
-                              {exchange.prompt}
+                             <div className="flex-1 bg-black/30 rounded-lg p-3 text-zinc-200">
+                                {exchange.images && exchange.images.length > 0 && (
+                                    <div className="flex gap-2 flex-wrap mb-2">
+                                        {exchange.images.map((img, i) => <img key={i} src={`data:${img.mimeType};base64,${img.data}`} alt={`user-upload-${i}`} className="h-24 w-24 object-cover rounded-md" />)}
+                                    </div>
+                                )}
+                                {exchange.prompt && <div className="whitespace-pre-wrap font-sans leading-relaxed">{exchange.prompt}</div>}
                             </div>
                           </div>
                           <div className="flex items-start gap-4">
@@ -560,7 +592,20 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
             {dbError}
           </div>
         )}
-        <PromptInput onSend={handleSend} isLoading={isAnyModelLoading} isSignedIn={!!user} />
+        <PromptInput onSend={handleSend} isLoading={isAnyModelLoading} isSignedIn={!!user} onImagesChange={handleImagesChange} />
+         {notification && (
+            <div className="absolute bottom-28 right-4 bg-yellow-900/70 backdrop-blur-md border border-yellow-500/40 text-yellow-300 px-4 py-3 rounded-lg shadow-lg animate-fade-in z-20 flex items-center gap-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.636-1.1 2.142-1.1 2.778 0l5.485 9.5c.636 1.1-.114 2.5-1.389 2.5H4.161c-1.275 0-2.025-1.4-1.389-2.5l5.485-9.5zM9 8a1 1 0 011 1v2a1 1 0 01-2 0V9a1 1 0 011-1zm1 6a1 1 0 10-2 0 1 1 0 002 0z" clipRule="evenodd" />
+              </svg>
+              <span>{notification}</span>
+              <button onClick={() => setNotification(null)} className="absolute -top-1 -right-1 h-5 w-5 bg-zinc-800 rounded-full flex items-center justify-center hover:bg-zinc-700">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+        )}
       </div>
 
       {chatToDelete && (

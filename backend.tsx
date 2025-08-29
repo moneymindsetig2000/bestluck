@@ -10,14 +10,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
+interface ImagePayload {
+  mimeType: string;
+  data: string;
+}
+
 async function handler(req: Request): Promise<Response> {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Only allow POST requests for the main logic. This prevents errors from other
-  // request types (like GET from browser prefetches or health checks) that don't have a body.
+  // Only allow POST requests for the main logic.
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method Not Allowed" }), {
       status: 405,
@@ -26,10 +30,17 @@ async function handler(req: Request): Promise<Response> {
   }
 
   try {
-    const { prompt, modelName } = await req.json();
+    const { prompt, modelName, images } = await req.json();
 
-    if (!prompt || !modelName) {
-      return new Response(JSON.stringify({ error: "Missing prompt or modelName" }), {
+    if ((!prompt || prompt.trim() === '') && (!images || images.length === 0)) {
+       return new Response(JSON.stringify({ error: "Missing prompt or images" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!modelName) {
+      return new Response(JSON.stringify({ error: "Missing modelName" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -55,7 +66,21 @@ async function handler(req: Request): Promise<Response> {
 
     // This system instruction asks Gemini to act as the specified model.
     const systemInstruction = `You are an AI assistant impersonating ${modelName}. Your goal is to respond to the user's prompt in a way that accurately reflects the known style, tone, capabilities, and typical response format of ${modelName}. Do not, under any circumstances, reveal that you are an impersonation or that you are using another model. Maintain the persona of ${modelName} throughout the conversation. For the 'Perplexity' persona, you should invent some plausible sources and add citation markers like [1], [2] in the text. At the end of your response, on new lines, list the sources in the format: '[1]: Title of Source (https://example.com/source1)'.`;
-
+    
+    const parts = [];
+    if (prompt && prompt.trim() !== '') {
+        parts.push({ text: prompt });
+    }
+    if (images && Array.isArray(images) && images.length > 0) {
+        const imageParts = images.map((image: ImagePayload) => ({
+            inlineData: {
+                mimeType: image.mimeType,
+                data: image.data,
+            },
+        }));
+        parts.push(...imageParts);
+    }
+    
     let stream = null;
 
     // Iterate through API keys until one succeeds
@@ -66,7 +91,7 @@ async function handler(req: Request): Promise<Response> {
             const ai = new GoogleGenAI({ apiKey: key });
             stream = await ai.models.generateContentStream({
                 model: GEMINI_MODEL,
-                contents: prompt,
+                contents: { parts },
                 config: {
                     systemInstruction: systemInstruction,
                 }
