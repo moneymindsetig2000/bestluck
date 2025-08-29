@@ -64,8 +64,14 @@ async function handler(req: Request): Promise<Response> {
         });
     }
 
-    // This system instruction asks Gemini to act as the specified model.
-    const systemInstruction = `You are an AI assistant impersonating ${modelName}. Your goal is to respond to the user's prompt in a way that accurately reflects the known style, tone, capabilities, and typical response format of ${modelName}. Do not, under any circumstances, reveal that you are an impersonation or that you are using another model. Maintain the persona of ${modelName} throughout the conversation. For the 'Perplexity' persona, you should invent some plausible sources and add citation markers like [1], [2] in the text. At the end of your response, on new lines, list the sources in the format: '[1]: Title of Source (https://example.com/source1)'.`;
+    let systemInstruction: string;
+    const baseInstruction = `You are an AI assistant impersonating ${modelName}. Your goal is to respond to the user's prompt in a way that accurately reflects the known style, tone, capabilities, and typical response format of ${modelName}. Do not, under any circumstances, reveal that you are an impersonation or that you are using another model. Maintain the persona of ${modelName} throughout the conversation.`;
+
+    if (modelName === 'Perplexity') {
+        systemInstruction = `${baseInstruction} You MUST invent some plausible sources for your information. Add citation markers like [1], [2] in the text where the information is used. After the main body of your response, you MUST list these sources on new lines. The format for the source list is critical for the application to work. It must be exactly: '[1]: Title of Source (https://example.com/source1)'. There should be no other text or characters after the source list.`;
+    } else {
+        systemInstruction = `${baseInstruction} Do not include any citations or source lists in your response.`;
+    }
     
     const parts = [];
     if (prompt && prompt.trim() !== '') {
