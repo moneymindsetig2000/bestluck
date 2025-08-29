@@ -518,7 +518,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
             return (
               <div 
                 key={model.name} 
-                className={`flex flex-col h-full border-r border-zinc-800 last:border-r-0 transition-all duration-500 ease-in-out ${widthClass}`}
+                className={`flex flex-col h-full border-r border-zinc-800 last:border-r-0 transition-all duration-500 ease-in-out min-w-0 ${widthClass}`}
               >
                 <ChatHeader 
                   model={model}
@@ -534,20 +534,20 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
                         <React.Fragment key={index}>
                           <div className="flex items-start gap-4">
                             <UserIcon />
-                             <div className="flex-1 bg-black/30 rounded-lg p-3 text-zinc-200">
+                             <div className="flex-1 min-w-0 bg-black/30 rounded-lg p-3 text-zinc-200">
                                 {exchange.images && exchange.images.length > 0 && (
                                     <div className="flex gap-2 flex-wrap mb-2">
                                         {exchange.images.map((img, i) => <img key={i} src={`data:${img.mimeType};base64,${img.data}`} alt={`user-upload-${i}`} className="h-24 w-24 object-cover rounded-md" />)}
                                     </div>
                                 )}
-                                {exchange.prompt && <div className="whitespace-pre-wrap font-sans leading-relaxed">{exchange.prompt}</div>}
+                                {exchange.prompt && <div className="whitespace-pre-wrap font-sans leading-relaxed break-words">{exchange.prompt}</div>}
                             </div>
                           </div>
                           <div className="flex items-start gap-4">
                             <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
                               {model.icon}
                             </div>
-                            <div className="flex-1 text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed">
+                            <div className="flex-1 min-w-0 text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed break-words">
                               {model.name === 'Perplexity' ? (
                                 <ResponseWithCitations 
                                   text={exchange.answer}
