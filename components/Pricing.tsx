@@ -181,7 +181,7 @@ const Pricing: React.FC<PricingProps> = ({ onLogin }) => {
                                 </li>
                                 <li className="flex items-center gap-3">
                                     <CheckIcon className="text-green-400" />
-                                    <span>400,000 tokens/month</span>
+                                    <span>240 Requests/Month</span>
                                 </li>
                                 <li className="flex items-center gap-3">
                                     <CheckIcon className="text-green-400" />

@@ -18,11 +18,10 @@ declare global {
   }
 }
 
-const formatDateTime = (isoString: string) => {
-    if (!isoString) return 'Calculating...';
-    return new Date(isoString).toLocaleString(undefined, {
+const formatDateTime = (timestamp: number) => {
+    if (!timestamp) return 'Calculating...';
+    return new Date(timestamp).toLocaleString(undefined, {
         year: 'numeric', month: 'long', day: 'numeric',
-        hour: 'numeric', minute: '2-digit', hour12: true,
     });
 };
 
@@ -353,14 +352,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
   };
 
   const handleUpgrade = async () => {
-    const now = new Date();
-    // Set expiry to 30 days from now
-    const expiryTimestamp = now.setDate(now.getDate() + 30);
-    
-    const newSub: Subscription = {
-      plan: 'pro',
-      expires: expiryTimestamp,
-    };
+      const startDate = Date.now();
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + 30);
+      
+      const newSub: Subscription = {
+        plan: 'pro',
+        requestsUsed: 0,
+        requestsLimit: 240, // Pro plan limit
+        periodStartDate: startDate,
+        periodEndDate: endDate.getTime(),
+      };
 
     try {
       const currentPuterUser = await window.puter.auth.getUser();
@@ -378,92 +380,102 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
     }
   };
 
-  const streamResponseForModel = async (prompt: string, images: ImagePayload[], model: ModelConfig) => {
-    try {
-      const response = await fetch(BACKEND_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: prompt,
-          images: images,
-          modelName: model.name,
-        }),
-      });
-
-      if (!response.ok || !response.body) {
-        throw new Error(`Failed to get response: ${response.status} ${response.statusText}`);
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let accumulatedAnswer = '';
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        accumulatedAnswer += chunk;
-        
-        // Live update the answer as chunks arrive
-        setResponses(prev => {
-          const modelHistory = [...(prev[model.name] || [])];
-          if (modelHistory.length === 0) return prev;
-          const lastResponseIndex = modelHistory.length - 1;
-          modelHistory[lastResponseIndex] = { ...modelHistory[lastResponseIndex], answer: accumulatedAnswer };
-          return { ...prev, [model.name]: modelHistory };
-        });
-      }
-
-      // After stream is complete, do final processing for citations
-      let finalAnswer = accumulatedAnswer;
-      let finalSources: Source[] | undefined = undefined;
-
-      if (model.name === 'Perplexity') {
-          const sourceRegex = /\[(\d+)\]:\s*(.*?)\s*\((https?:\/\/[^\s)]+)\)/g;
-          const matches = [...accumulatedAnswer.matchAll(sourceRegex)];
-          
-          if (matches.length > 0) {
-              const sourcesFound: Source[] = [];
-              finalAnswer = accumulatedAnswer.replace(sourceRegex, '').trim();
-              
-              for (const match of matches) {
-                  sourcesFound.push({ title: match[2].trim(), url: match[3].trim() });
-              }
-              finalSources = sourcesFound;
+  const streamResponseForModel = (prompt: string, images: ImagePayload[], model: ModelConfig): Promise<void> => {
+    return new Promise(async (resolve, reject) => {
+        try {
+          const response = await fetch(BACKEND_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              prompt: prompt,
+              images: images,
+              modelName: model.name,
+            }),
+          });
+    
+          if (!response.ok || !response.body) {
+            throw new Error(`Failed to get response: ${response.status} ${response.statusText}`);
           }
-      }
+    
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let accumulatedAnswer = '';
+    
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+    
+            const chunk = decoder.decode(value, { stream: true });
+            accumulatedAnswer += chunk;
+            
+            // Live update the answer as chunks arrive
+            setResponses(prev => {
+              const modelHistory = [...(prev[model.name] || [])];
+              if (modelHistory.length === 0) return prev;
+              const lastResponseIndex = modelHistory.length - 1;
+              modelHistory[lastResponseIndex] = { ...modelHistory[lastResponseIndex], answer: accumulatedAnswer };
+              return { ...prev, [model.name]: modelHistory };
+            });
+          }
+    
+          // After stream is complete, do final processing for citations
+          let finalAnswer = accumulatedAnswer;
+          let finalSources: Source[] | undefined = undefined;
+    
+          if (model.name === 'Perplexity') {
+              const sourceRegex = /\[(\d+)\]:\s*(.*?)\s*\((https?:\/\/[^\s)]+)\)/g;
+              const matches = [...accumulatedAnswer.matchAll(sourceRegex)];
+              
+              if (matches.length > 0) {
+                  const sourcesFound: Source[] = [];
+                  finalAnswer = accumulatedAnswer.replace(sourceRegex, '').trim();
+                  
+                  for (const match of matches) {
+                      sourcesFound.push({ title: match[2].trim(), url: match[3].trim() });
+                  }
+                  finalSources = sourcesFound;
+              }
+          }
+    
+          // Perform a final state update with parsed sources and cleaned answer
+          setResponses(prev => {
+            const modelHistory = [...(prev[model.name] || [])];
+            if (modelHistory.length === 0) return prev;
+            const lastResponseIndex = modelHistory.length - 1;
+            modelHistory[lastResponseIndex] = { ...modelHistory[lastResponseIndex], answer: finalAnswer, sources: finalSources };
+            return { ...prev, [model.name]: modelHistory };
+          });
+    
+          resolve();
 
-      // Perform a final state update with parsed sources and cleaned answer
-      setResponses(prev => {
-        const modelHistory = [...(prev[model.name] || [])];
-        if (modelHistory.length === 0) return prev;
-        const lastResponseIndex = modelHistory.length - 1;
-        modelHistory[lastResponseIndex] = { ...modelHistory[lastResponseIndex], answer: finalAnswer, sources: finalSources };
-        return { ...prev, [model.name]: modelHistory };
-      });
-
-    } catch (error) {
-      console.error(`Error streaming response for ${model.name}:`, error);
-      const errorMessage = `**Error:** Could not get response from ${model.name}. Please check the backend connection and try again. Is the URL \`${BACKEND_URL}\` correct?`;
-      setResponses(prev => {
-        const modelHistory = [...(prev[model.name] || [])];
-        if (modelHistory.length === 0) return prev;
-        
-        const lastResponseIndex = modelHistory.length - 1;
-        modelHistory[lastResponseIndex] = { ...modelHistory[lastResponseIndex], answer: errorMessage };
-        return { ...prev, [model.name]: modelHistory };
-      });
-    } finally {
-      setLoadingStates(prev => ({ ...prev, [model.name]: false }));
-    }
+        } catch (error: any) {
+          console.error(`Error streaming response for ${model.name}:`, error);
+          const errorMessage = `**Error:** Could not get response from ${model.name}. Please check the backend connection and try again. Is the URL \`${BACKEND_URL}\` correct?`;
+          setResponses(prev => {
+            const modelHistory = [...(prev[model.name] || [])];
+            if (modelHistory.length === 0) return prev;
+            
+            const lastResponseIndex = modelHistory.length - 1;
+            modelHistory[lastResponseIndex] = { ...modelHistory[lastResponseIndex], answer: errorMessage };
+            return { ...prev, [model.name]: modelHistory };
+          });
+          reject(error);
+        } finally {
+          setLoadingStates(prev => ({ ...prev, [model.name]: false }));
+        }
+    });
   };
 
   const handleSend = async (prompt: string, images: ImagePayload[]) => {
     if (BACKEND_URL.includes("your-project-name")) {
         alert("Backend URL is not configured. Please edit `pages/ChatPage.tsx` and set the `BACKEND_URL` constant to your Deno Deploy URL.");
+        return;
+    }
+    
+    if (subscription && subscription.requestsUsed >= subscription.requestsLimit) {
+        setNotification("You have reached your monthly request limit.");
         return;
     }
 
@@ -509,14 +521,36 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
     });
     setLoadingStates(updatedLoadingStates);
 
-    targetModels.forEach(model => {
-      streamResponseForModel(prompt, images, model);
-    });
+    const streamPromises = targetModels.map(model => streamResponseForModel(prompt, images, model));
+
+    try {
+        await Promise.all(streamPromises);
+        
+        // All streams finished, now update subscription
+        if (subscription) {
+            const newSubState = {
+                ...subscription,
+                requestsUsed: subscription.requestsUsed + 1,
+            };
+            setSubscription(newSubState);
+
+            const currentPuterUser = await window.puter.auth.getUser();
+            if (currentPuterUser) {
+                const settingsDir = getSettingsDirForUser(currentPuterUser);
+                const subPath = `${settingsDir}/subscription.json`;
+                await safePuterFs.write(subPath, JSON.stringify(newSubState));
+            }
+        }
+
+    } catch (error) {
+        console.error("One or more model streams failed.", error);
+    }
   };
 
   const isAnyModelLoading = Object.values(loadingStates).some(isLoading => isLoading);
-  const isPro = subscription.plan === 'pro';
-  const isFree = subscription.plan === 'free';
+  const isPro = subscription?.plan === 'pro';
+  const isFree = subscription?.plan === 'free';
+  const isLimitReached = subscription && subscription.requestsUsed >= subscription.requestsLimit;
 
   return (
     <div className="flex h-screen bg-[#212121] text-white font-sans overflow-hidden">
@@ -623,7 +657,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
             {dbError}
           </div>
         )}
-        <PromptInput onSend={handleSend} isLoading={isAnyModelLoading} isSignedIn={!!user} onImagesChange={handleImagesChange} />
+        {isLimitReached && (
+          <div className="flex-shrink-0 p-2 text-center bg-red-900/50 text-yellow-300 text-sm font-medium">
+            You have reached your monthly request limit. Your limit will reset on {formatDateTime(subscription.periodEndDate)}.
+          </div>
+        )}
+        <PromptInput onSend={handleSend} isLoading={isAnyModelLoading} isSignedIn={!!user} onImagesChange={handleImagesChange} isLimitReached={isLimitReached} />
          {notification && (
             <div className="absolute bottom-28 right-4 bg-yellow-900/70 backdrop-blur-md border border-yellow-500/40 text-yellow-300 px-4 py-3 rounded-lg shadow-lg animate-fade-in z-20 flex items-center gap-3">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
@@ -688,6 +727,13 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
                   <span>Subscription</span>
                 </button>
+                 <button
+                  onClick={() => setActiveSettingTab('creditUsage')}
+                  className={`flex items-center gap-3 w-full text-left p-3 rounded-lg text-sm font-medium transition-colors ${activeSettingTab === 'creditUsage' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>
+                  <span>Credit Usage</span>
+                </button>
                 <button
                   onClick={() => setActiveSettingTab('account')}
                   className={`flex items-center gap-3 w-full text-left p-3 rounded-lg text-sm font-medium transition-colors ${activeSettingTab === 'account' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}
@@ -711,7 +757,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                       <p className="text-3xl font-bold text-white mt-2">$0 <span className="text-xl font-medium text-zinc-400">/ month</span></p>
                       <ul className="space-y-3 mt-6 text-zinc-300 text-sm flex-grow">
                           <li className="flex items-center gap-3"><svg className="w-5 h-5 text-zinc-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Limited AI model access</li>
-                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-zinc-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Basic message limits</li>
+                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-zinc-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>30 Requests/Month</li>
                           <li className="flex items-center gap-3"><svg className="w-5 h-5 text-zinc-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Standard support</li>
                       </ul>
                       <button disabled className="mt-6 w-full text-center py-3 rounded-lg bg-zinc-700 text-zinc-400 font-semibold cursor-not-allowed">Your Plan</button>
@@ -723,7 +769,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                       <p className="text-3xl font-bold text-white mt-2">₹999 <span className="text-xl font-medium text-zinc-400">/ month</span></p>
                       <ul className="space-y-3 mt-6 text-zinc-300 text-sm flex-grow">
                           <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>All premium AI models</li>
-                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>400,000 tokens/month</li>
+                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>240 Requests/Month</li>
                           <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Prompt enhancement</li>
                           <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Image & Audio features</li>
                           <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Community & Promptbook</li>
@@ -737,6 +783,35 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                       </button>
                     </div>
                   </div>
+                </div>
+              )}
+              {activeSettingTab === 'creditUsage' && subscription && (
+                <div>
+                    <h3 className="text-2xl font-bold text-white mb-2">Credit Usage</h3>
+                    <p className="text-zinc-400 mb-6">Your request usage for the current billing period. One request is counted per "send" action, regardless of how many models are selected.</p>
+                    
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                        <div className="flex justify-between items-center mb-2">
+                            <p className="font-medium text-white">{subscription.plan === 'pro' ? 'Pro Plan' : 'Free Plan'}</p>
+                            <p className="font-mono text-lg font-semibold text-white">{subscription.requestsUsed} / <span className="text-zinc-400">{subscription.requestsLimit}</span></p>
+                        </div>
+                        <div className="w-full bg-zinc-700 rounded-full h-2.5">
+                            <div 
+                                className="bg-gradient-to-r from-teal-400 to-green-500 h-2.5 rounded-full" 
+                                style={{ width: `${(subscription.requestsUsed / subscription.requestsLimit) * 100}%` }}
+                            ></div>
+                        </div>
+                        <div className="flex justify-between items-center text-xs text-zinc-400 mt-4">
+                            <div>
+                                <p className="font-semibold">Current Period Start</p>
+                                <p>{formatDateTime(subscription.periodStartDate)}</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="font-semibold">Next Reset Date</p>
+                                <p>{formatDateTime(subscription.periodEndDate)}</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
               )}
               {activeSettingTab === 'account' && (

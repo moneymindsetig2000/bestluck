@@ -40,13 +40,42 @@ const App: React.FC = () => {
         try {
           const blob = await safePuterFs.read(subPath);
           const content = await blob.text();
-          const subData = JSON.parse(content) as Subscription;
+          let subData = JSON.parse(content) as Subscription;
+          
+          // Check for subscription period reset
+          const now = Date.now();
+          if (subData.periodEndDate && now > subData.periodEndDate) {
+              console.log('Subscription period expired, resetting.');
+              const newStartDate = now;
+              const newEndDate = new Date(newStartDate);
+              newEndDate.setDate(newEndDate.getDate() + 30);
+              
+              subData = {
+                  ...subData,
+                  requestsUsed: 0,
+                  periodStartDate: newStartDate,
+                  periodEndDate: newEndDate.getTime(),
+              };
+              // Save the reset subscription back to the file
+              await safePuterFs.write(subPath, JSON.stringify(subData));
+          }
+
           setSubscription(subData);
           console.log('Found existing subscription:', subData);
         } catch (error) {
           // Assuming error means file doesn't exist, create it.
           console.log('No subscription found, creating default free plan.');
-          const newSub: Subscription = { plan: 'free', expires: null };
+          const startDate = Date.now();
+          const endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 30);
+
+          const newSub: Subscription = { 
+            plan: 'free',
+            requestsUsed: 0,
+            requestsLimit: 30, // Free plan limit
+            periodStartDate: startDate,
+            periodEndDate: endDate.getTime(),
+          };
           await safePuterFs.mkdir(settingsDir, { createMissingParents: true });
           await safePuterFs.write(subPath, JSON.stringify(newSub));
           setSubscription(newSub);
