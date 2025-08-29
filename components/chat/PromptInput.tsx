@@ -4,10 +4,9 @@ interface PromptInputProps {
   onSend: (prompt: string) => void;
   isLoading: boolean;
   isSignedIn: boolean;
-  isOutOfTokens: boolean;
 }
 
-const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn, isOutOfTokens }) => {
+const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn }) => {
     const [text, setText] = React.useState('');
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
     
@@ -18,7 +17,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn
     };
 
     const handleSendClick = () => {
-        if (text.trim() && !isLoading && !isOutOfTokens) {
+        if (text.trim() && !isLoading) {
             onSend(text);
             setText('');
             if (textareaRef.current) {
@@ -41,9 +40,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn
                     ref={textareaRef}
                     className="w-full bg-transparent text-gray-200 placeholder-gray-500 focus:outline-none resize-none max-h-48 disabled:opacity-50"
                     placeholder={
-                        isOutOfTokens 
-                        ? "You've reached your monthly token limit." 
-                        : isSignedIn 
+                        isSignedIn 
                             ? "Ask me anything..." 
                             : "Please sign in to start chatting..."
                     }
@@ -51,7 +48,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn
                     value={text}
                     onInput={handleInput}
                     onKeyDown={handleKeyDown}
-                    disabled={isLoading || isOutOfTokens}
+                    disabled={isLoading}
                 />
                 <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-4 text-sm text-gray-400">
@@ -76,7 +73,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn
                         <button 
                             className="w-8 h-8 flex items-center justify-center bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:bg-zinc-600 disabled:cursor-not-allowed" 
                             onClick={handleSendClick}
-                            disabled={!text.trim() || isLoading || isOutOfTokens}
+                            disabled={!text.trim() || isLoading}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white -rotate-45" viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.428A1 1 0 0010 16h.002a1 1 0 00.725-.317l5-1.428a1 1 0 001.17-1.409l-7-14z" />
