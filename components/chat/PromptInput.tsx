@@ -62,14 +62,6 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn
                         </button>
                     </div>
                     <div className="flex items-center gap-3">
-                         <div className="flex items-center p-1 bg-[#272727] rounded-lg text-sm">
-                             <button className="px-2 py-0.5 rounded-md bg-zinc-700/50 text-white">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m-5-4a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0m5-3.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"/></svg>
-                             </button>
-                             <button className="px-2 py-0.5 rounded-md text-gray-400">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-                             </button>
-                         </div>
                         <button 
                             className="w-8 h-8 flex items-center justify-center bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:bg-zinc-600 disabled:cursor-not-allowed" 
                             onClick={handleSendClick}
