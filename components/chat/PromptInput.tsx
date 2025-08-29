@@ -66,9 +66,10 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn
                             className="w-8 h-8 flex items-center justify-center bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:bg-zinc-600 disabled:cursor-not-allowed" 
                             onClick={handleSendClick}
                             disabled={!text.trim() || isLoading}
+                            aria-label="Send message"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white -rotate-45" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.428A1 1 0 0010 16h.002a1 1 0 00.725-.317l5-1.428a1 1 0 001.17-1.409l-7-14z" />
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                             </svg>
                         </button>
                     </div>
