@@ -115,6 +115,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
   const [notification, setNotification] = useState<string | null>(null);
 
   const prevLoadingStatesRef = useRef<Record<string, boolean>>({});
+  const chatEndRefs = useRef<Record<string, HTMLDivElement | null>>({});
   
   const saveChat = useCallback(async (chatId: string) => {
     if (!chatId) return;
@@ -259,6 +260,13 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
       return () => clearTimeout(timer);
     }
   }, [notification]);
+
+  useEffect(() => {
+    // Auto-scroll to the bottom of any chat pane that has new content.
+    Object.values(chatEndRefs.current).forEach(el => {
+      el?.scrollIntoView({ behavior: "smooth" });
+    });
+  }, [responses]);
 
   const handleToggleExpand = (modelName: string) => {
     setExpandedModel(prev => (prev === modelName ? null : modelName));
@@ -592,7 +600,9 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                   onToggleExpand={() => handleToggleExpand(model.name)}
                   onToggleEnabled={() => handleToggleModelEnabled(model.name)}
                 />
-                <div className={`flex-1 overflow-y-auto ${isCollapsed ? 'hidden' : 'block'}`}>
+                <div 
+                  className={`flex-1 overflow-y-auto ${isCollapsed ? 'hidden' : 'block'}`}
+                >
                   {responses[model.name] && responses[model.name].length > 0 ? (
                     <div className="p-4 space-y-6 text-base">
                       {responses[model.name].map((exchange, index) => (
@@ -626,6 +636,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                           </div>
                         </React.Fragment>
                       ))}
+                      {/* FIX: Ensure ref callback returns void to fix TypeScript error. */}
+                      <div ref={el => { chatEndRefs.current[model.name] = el; }} />
                     </div>
                   ) : (
                     <div className="flex h-full items-center justify-center p-4">
@@ -666,193 +678,84 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
          {notification && (
             <div className="absolute bottom-28 right-4 bg-yellow-900/70 backdrop-blur-md border border-yellow-500/40 text-yellow-300 px-4 py-3 rounded-lg shadow-lg animate-fade-in z-20 flex items-center gap-3">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.636-1.1 2.142-1.1 2.778 0l5.485 9.5c.636 1.1-.114 2.5-1.389 2.5H4.161c-1.275 0-2.025-1.4-1.389-2.5l5.485-9.5zM9 8a1 1 0 011 1v2a1 1 0 01-2 0V9a1 1 0 011-1zm1 6a1 1 0 10-2 0 1 1 0 002 0z" clipRule="evenodd" />
+                <path fillRule="evenodd" d="M8.257 3.099c.636-1.1 2.142-1.1 2.778 0l5.482 9.5c.636 1.1.06 2.401-1.389 2.401H4.167c-1.449 0-2.025-1.3-1.389-2.4l5.48-9.5zM9 8a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1zm1 2a1 1 0 00-1 1v2a1 1 0 102 0v-2a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
               <span>{notification}</span>
-              <button onClick={() => setNotification(null)} className="absolute -top-1 -right-1 h-5 w-5 bg-zinc-800 rounded-full flex items-center justify-center hover:bg-zinc-700">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+            </div>
+          )}
+
+        {/* Delete Confirmation Modal */}
+        {chatToDelete && (
+          <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
+            <div className="bg-zinc-800 rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
+              <h2 className="text-xl font-bold text-white">Delete Chat?</h2>
+              <p className="text-zinc-400 mt-2">Are you sure you want to delete "{chatToDelete.title}"? This action cannot be undone.</p>
+              <div className="flex justify-center gap-4 mt-6">
+                <button 
+                  onClick={() => setChatToDelete(null)}
+                  className="px-4 py-2 bg-zinc-600 hover:bg-zinc-500 text-white rounded-md transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleDeleteChatConfirm}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-md transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Help & Settings Modal */}
+        {showHelpModal && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowHelpModal(false)}>
+                <div className="bg-[#171717] border border-zinc-700 rounded-lg shadow-xl w-full max-w-2xl text-left" onClick={(e) => e.stopPropagation()}>
+                    <div className="p-5 border-b border-zinc-700 flex justify-between items-center">
+                        <h2 className="text-xl font-bold text-white">Help & Settings</h2>
+                        <button onClick={() => setShowHelpModal(false)} className="text-zinc-400 hover:text-white">&times;</button>
+                    </div>
+                    <div className="flex">
+                        <nav className="w-1/3 p-3 border-r border-zinc-700">
+                            <ul>
+                                <li><button onClick={() => setActiveSettingTab('subscription')} className={`w-full text-left px-3 py-2 rounded-md ${activeSettingTab === 'subscription' ? 'bg-zinc-700' : 'hover:bg-zinc-800'}`}>Subscription</button></li>
+                                <li><button onClick={() => setActiveSettingTab('logout')} className={`w-full text-left px-3 py-2 rounded-md ${activeSettingTab === 'logout' ? 'bg-zinc-700' : 'hover:bg-zinc-800'}`}>Log Out</button></li>
+                            </ul>
+                        </nav>
+                        <div className="w-2/3 p-5">
+                            {activeSettingTab === 'subscription' && subscription && (
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white mb-3">Your Plan: <span className="capitalize text-emerald-400">{subscription.plan}</span></h3>
+                                    <p className="text-zinc-400 text-sm">Requests used: {subscription.requestsUsed} / {subscription.requestsLimit}</p>
+                                    <div className="w-full bg-zinc-700 rounded-full h-2.5 my-2">
+                                        <div className="bg-emerald-500 h-2.5 rounded-full" style={{width: `${(subscription.requestsUsed / subscription.requestsLimit) * 100}%`}}></div>
+                                    </div>
+                                    <p className="text-zinc-500 text-xs">Your plan resets on {formatDateTime(subscription.periodEndDate)}</p>
+                                    {isFree && (
+                                        <button onClick={handleUpgrade} className="mt-6 w-full text-center bg-gradient-to-r from-teal-400 to-green-500 text-black font-bold px-4 py-2 rounded-md hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300">
+                                            Upgrade to Pro (240 Requests/Month)
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                             {activeSettingTab === 'logout' && (
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white mb-3">Log Out</h3>
+                                    <p className="text-zinc-400 text-sm mb-4">Are you sure you want to log out of your account?</p>
+                                    <button onClick={onLogout} className="w-full text-center bg-red-600 text-white font-bold px-4 py-2 rounded-md hover:bg-red-700 transition-colors">
+                                        Log Out
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
             </div>
         )}
       </div>
-
-      {chatToDelete && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-[#171717] p-8 rounded-2xl border border-zinc-800 text-center max-w-sm shadow-lg animate-fade-in relative">
-            <h2 className="text-xl font-bold text-white mb-2">Delete Chat?</h2>
-            <p className="text-zinc-400 mb-6">
-              Are you sure you want to delete the chat titled "{chatToDelete.title}"? This action cannot be undone.
-            </p>
-            <div className="flex justify-center gap-4">
-              <button
-                onClick={() => setChatToDelete(null)}
-                className="px-6 py-2 rounded-full bg-zinc-700 text-white font-semibold hover:bg-zinc-600 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteChatConfirm}
-                className="px-6 py-2 rounded-full bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {showHelpModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-          <div className="bg-[#1C1C1C] max-w-4xl w-full h-[600px] rounded-2xl border border-zinc-800 shadow-lg flex overflow-hidden relative">
-            <button 
-              onClick={() => setShowHelpModal(false)} 
-              aria-label="Close" 
-              className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors p-1 rounded-full hover:bg-zinc-700 z-20"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            
-            {/* Sidebar */}
-            <div className="w-1/4 bg-[#171717] p-4 border-r border-zinc-800 flex flex-col">
-              <h2 className="text-xl font-bold text-white mb-6 px-2">Settings</h2>
-              <nav className="flex flex-col gap-2">
-                <button
-                  onClick={() => setActiveSettingTab('subscription')}
-                  className={`flex items-center gap-3 w-full text-left p-3 rounded-lg text-sm font-medium transition-colors ${activeSettingTab === 'subscription' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-                  <span>Subscription</span>
-                </button>
-                 <button
-                  onClick={() => setActiveSettingTab('creditUsage')}
-                  className={`flex items-center gap-3 w-full text-left p-3 rounded-lg text-sm font-medium transition-colors ${activeSettingTab === 'creditUsage' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01" /></svg>
-                  <span>Credit Usage</span>
-                </button>
-                <button
-                  onClick={() => setActiveSettingTab('account')}
-                  className={`flex items-center gap-3 w-full text-left p-3 rounded-lg text-sm font-medium transition-colors ${activeSettingTab === 'account' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800 hover:text-white'}`}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                  <span>Account</span>
-                </button>
-              </nav>
-            </div>
-            
-            {/* Content */}
-            <div className="w-3/4 p-8 overflow-y-auto">
-              {activeSettingTab === 'subscription' && (
-                <div>
-                  <h3 className="text-2xl font-bold text-white mb-6">Manage Subscription</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Free Plan Card */}
-                    <div className={`bg-[#27272a] border-2 ${isFree ? 'border-zinc-500' : 'border-zinc-700'} rounded-xl p-6 flex flex-col relative`}>
-                      {isFree && <span className="absolute top-4 right-4 text-xs font-semibold bg-zinc-600 text-zinc-200 px-2 py-1 rounded-full">Current Plan</span>}
-                      <h4 className="text-xl font-bold text-white">Free Plan</h4>
-                      <p className="text-3xl font-bold text-white mt-2">$0 <span className="text-xl font-medium text-zinc-400">/ month</span></p>
-                      <ul className="space-y-3 mt-6 text-zinc-300 text-sm flex-grow">
-                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-zinc-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Limited AI model access</li>
-                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-zinc-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>60 Requests/Month</li>
-                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-zinc-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Standard support</li>
-                      </ul>
-                      <button disabled className="mt-6 w-full text-center py-3 rounded-lg bg-zinc-700 text-zinc-400 font-semibold cursor-not-allowed">Your Plan</button>
-                    </div>
-                    {/* Pro Plan Card */}
-                    <div className={`bg-[#27272a] border-2 ${isPro ? 'border-green-400/60' : 'border-green-400/30 hover:border-green-400/60'} rounded-xl p-6 flex flex-col transition-colors relative`}>
-                      {isPro && <span className="absolute top-4 right-4 text-xs font-semibold bg-green-500/20 text-green-300 px-2 py-1 rounded-full">Current Plan</span>}
-                      <h4 className="text-xl font-bold text-white">Pro Plan</h4>
-                      <p className="text-3xl font-bold text-white mt-2">₹999 <span className="text-xl font-medium text-zinc-400">/ month</span></p>
-                      <ul className="space-y-3 mt-6 text-zinc-300 text-sm flex-grow">
-                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>All premium AI models</li>
-                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>240 Requests/Month</li>
-                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Prompt enhancement</li>
-                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Image & Audio features</li>
-                          <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Community & Promptbook</li>
-                      </ul>
-                      <button 
-                        onClick={handleUpgrade}
-                        disabled={isPro}
-                        className="mt-6 w-full text-center bg-gradient-to-r from-teal-400 to-green-500 text-black font-bold py-3 rounded-lg hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300 transform hover:-translate-y-0.5 group disabled:bg-none disabled:bg-green-600/50 disabled:text-zinc-300 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
-                      >
-                          {isPro ? 'Your Current Plan' : 'Upgrade to Pro'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {activeSettingTab === 'creditUsage' && subscription && (
-                <div>
-                    <h3 className="text-2xl font-bold text-white mb-2">Credit Usage</h3>
-                    <p className="text-zinc-400 mb-6">Your request usage for the current billing period. One request is counted per "send" action, regardless of how many models are selected.</p>
-                    
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-                        <div className="flex justify-between items-center mb-2">
-                            <p className="font-medium text-white">{subscription.plan === 'pro' ? 'Pro Plan' : 'Free Plan'}</p>
-                            <p className="font-mono text-lg font-semibold text-white">{subscription.requestsUsed} / <span className="text-zinc-400">{subscription.requestsLimit}</span></p>
-                        </div>
-                        <div className="w-full bg-zinc-700 rounded-full h-2.5">
-                            <div 
-                                className="bg-gradient-to-r from-teal-400 to-green-500 h-2.5 rounded-full" 
-                                style={{ width: `${(subscription.requestsUsed / subscription.requestsLimit) * 100}%` }}
-                            ></div>
-                        </div>
-                        <div className="flex justify-between items-center text-xs text-zinc-400 mt-4">
-                            <div>
-                                <p className="font-semibold">Current Period Start</p>
-                                <p>{formatDateTime(subscription.periodStartDate)}</p>
-                            </div>
-                            <div className="text-right">
-                                <p className="font-semibold">Next Reset Date</p>
-                                <p>{formatDateTime(subscription.periodEndDate)}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-              )}
-              {activeSettingTab === 'account' && (
-                <div>
-                  <h3 className="text-2xl font-bold text-white mb-8">Account Details</h3>
-                  
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 flex items-center gap-5">
-                    <img 
-                      src={user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'A')}&background=27272a&color=fff&size=64&bold=true`}
-                      alt={user.displayName || 'User Avatar'} 
-                      className="h-16 w-16 rounded-full flex-shrink-0" 
-                    />
-                    <div className="flex-1 overflow-hidden">
-                      <p className="text-xl font-bold text-white truncate">{user.displayName || 'Anonymous User'}</p>
-                      <p className="text-sm text-zinc-400 font-mono mt-1 truncate">UID: {user.uid}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-10">
-                    <h4 className="text-lg font-semibold text-red-500 mb-3">Danger Zone</h4>
-                    <div className="bg-zinc-900 border border-red-500/40 rounded-xl p-5 flex justify-between items-center">
-                      <div>
-                        <p className="font-bold text-white text-base">Sign Out</p>
-                        <p className="text-sm text-zinc-400 mt-1">You will be returned to the login screen.</p>
-                      </div>
-                      <button 
-                        onClick={onLogout} 
-                        className="bg-transparent text-red-400 border border-red-600 px-5 py-2 rounded-lg font-semibold hover:bg-red-600/10 transition-colors"
-                      >
-                        Sign Out
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };
+
 export default ChatPage;

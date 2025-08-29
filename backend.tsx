@@ -46,18 +46,10 @@ async function handler(req: Request): Promise<Response> {
       });
     }
     
-    // Get multiple API keys from the environment variable
-    const apiKeysEnv = process.env.API_KEYS;
-    if (!apiKeysEnv) {
-        console.error("API_KEYS environment variable is not set.");
-        return new Response(JSON.stringify({ error: "Server configuration error." }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-    }
-    const apiKeys = apiKeysEnv.split(',').map(k => k.trim()).filter(Boolean);
-    if (apiKeys.length === 0) {
-        console.error("API_KEYS environment variable is empty or invalid.");
+    // FIX: Get API key from environment variable, per guidelines.
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+        console.error("API_KEY environment variable is not set.");
         return new Response(JSON.stringify({ error: "Server configuration error." }), {
             status: 500,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -81,32 +73,18 @@ async function handler(req: Request): Promise<Response> {
         parts.push(...imageParts);
     }
     
-    let stream = null;
-
-    // Iterate through API keys until one succeeds
-    for (let i = 0; i < apiKeys.length; i++) {
-        const key = apiKeys[i];
-        try {
-            console.log(`Attempting to generate content with API key index ${i}`);
-            const ai = new GoogleGenAI({ apiKey: key });
-            stream = await ai.models.generateContentStream({
-                model: GEMINI_MODEL,
-                contents: { parts },
-                config: {
-                    systemInstruction: systemInstruction,
-                }
-            });
-            console.log(`Successfully connected with API key index ${i}. Starting stream.`);
-            break; // Exit the loop on success
-        } catch (error) {
-            console.error(`API key index ${i} failed. Error:`, error.message);
-            // If this was the last key, the loop will end and stream will be null.
-        }
-    }
-
-    // If all keys failed, 'stream' will be null
-    if (!stream) {
-        console.error("All API keys failed.");
+    let stream;
+    try {
+        const ai = new GoogleGenAI({ apiKey });
+        stream = await ai.models.generateContentStream({
+            model: GEMINI_MODEL,
+            contents: { parts },
+            config: {
+                systemInstruction: systemInstruction,
+            }
+        });
+    } catch (error) {
+        console.error("API call failed. Error:", error.message);
         return new Response(
             JSON.stringify({ error: "We are expecting very high traffic now, please try again later!" }),
             {
