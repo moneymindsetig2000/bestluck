@@ -11,12 +11,12 @@ const faqData = [
     answer: 'Yes! You have full control to select or deselect any of the available AI models for each prompt you submit. This allows you to tailor your queries to the strengths of each model or compare responses from your preferred set of AIs.',
   },
   {
-    question: 'Do I get unlimited messages?',
-    answer: 'Our plan includes a generous 400,000 tokens per month, which is more than enough for most users to explore, create, and get answers. This large token amount ensures you can extensively use the platform without worrying about running out quickly.',
+    question: 'How many requests are included per month?',
+    answer: 'Our Pro plan includes a generous 240 requests per month, and the Free plan includes 60 requests. A single "request" is counted per prompt submission, regardless of how many AI models you have selected. This is typically more than enough for most users to explore, create, and get answers.',
   },
   {
-    question: 'What happens if I run out of tokens?',
-    answer: 'Your token balance automatically resets at the beginning of each monthly billing cycle. We are also working on options for users to purchase additional token packs if they need more for a specific project.',
+    question: 'What happens if I run out of requests?',
+    answer: 'Your request balance automatically resets at the beginning of each monthly billing cycle (every 30 days). We are also working on options for users to purchase additional request packs if they need more for a specific project.',
   },
   {
     question: 'Do you offer refunds?',

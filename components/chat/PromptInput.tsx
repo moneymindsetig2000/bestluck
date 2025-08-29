@@ -97,6 +97,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn
                                     onClick={() => handleRemoveImage(index)}
                                     className="absolute top-1 right-1 h-5 w-5 bg-black/60 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
                                     aria-label="Remove image"
+                                    disabled={isDisabled}
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -124,7 +125,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn
                 />
                 <div className="flex items-center justify-between mt-2">
                     <div className="flex items-center gap-4 text-sm text-gray-400">
-                        <button className="flex items-center gap-1.5 hover:text-white transition-colors disabled:opacity-50" disabled={isDisabled}>
+                        <button className="flex items-center gap-1.5 hover:text-white transition-colors disabled:opacity-50 disabled:hover:text-gray-400" disabled={isDisabled}>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path><path d="M5 3v4"></path><path d="M19 17v4"></path><path d="M3 5h4"></path><path d="M17 19h4"></path></svg>
                             Generate Image
                         </button>
@@ -137,7 +138,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn
                             onChange={handleFileChange}
                             disabled={isDisabled}
                         />
-                        <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 hover:text-white transition-colors disabled:opacity-50" disabled={isDisabled}>
+                        <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 hover:text-white transition-colors disabled:opacity-50 disabled:hover:text-gray-400" disabled={isDisabled}>
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line></svg>
                             Upload Image
                         </button>

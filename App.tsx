@@ -72,7 +72,7 @@ const App: React.FC = () => {
           const newSub: Subscription = { 
             plan: 'free',
             requestsUsed: 0,
-            requestsLimit: 30, // Free plan limit
+            requestsLimit: 60, // Free plan limit
             periodStartDate: startDate,
             periodEndDate: endDate.getTime(),
           };
