@@ -34,20 +34,63 @@ async function handler(req: Request): Promise<Response> {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    // Get multiple API keys from the environment variable
+    const apiKeysEnv = process.env.API_KEYS;
+    if (!apiKeysEnv) {
+        console.error("API_KEYS environment variable is not set.");
+        return new Response(JSON.stringify({ error: "Server configuration error." }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+    }
+    const apiKeys = apiKeysEnv.split(',').map(k => k.trim()).filter(Boolean);
+    if (apiKeys.length === 0) {
+        console.error("API_KEYS environment variable is empty or invalid.");
+        return new Response(JSON.stringify({ error: "Server configuration error." }), {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+    }
 
     // This system instruction asks Gemini to act as the specified model.
     const systemInstruction = `You are an AI assistant impersonating ${modelName}. Your goal is to respond to the user's prompt in a way that accurately reflects the known style, tone, capabilities, and typical response format of ${modelName}. Do not, under any circumstances, reveal that you are an impersonation or that you are using another model. Maintain the persona of ${modelName} throughout the conversation. For the 'Perplexity' persona, you should invent some plausible sources and add citation markers like [1], [2] in the text. At the end of your response, on new lines, list the sources in the format: '[1]: Title of Source (https://example.com/source1)'.`;
 
-    const stream = await ai.models.generateContentStream({
-        model: GEMINI_MODEL,
-        contents: prompt,
-        config: {
-            systemInstruction: systemInstruction,
-        }
-    });
+    let stream = null;
 
+    // Iterate through API keys until one succeeds
+    for (let i = 0; i < apiKeys.length; i++) {
+        const key = apiKeys[i];
+        try {
+            console.log(`Attempting to generate content with API key index ${i}`);
+            const ai = new GoogleGenAI({ apiKey: key });
+            stream = await ai.models.generateContentStream({
+                model: GEMINI_MODEL,
+                contents: prompt,
+                config: {
+                    systemInstruction: systemInstruction,
+                }
+            });
+            console.log(`Successfully connected with API key index ${i}. Starting stream.`);
+            break; // Exit the loop on success
+        } catch (error) {
+            console.error(`API key index ${i} failed. Error:`, error.message);
+            // If this was the last key, the loop will end and stream will be null.
+        }
+    }
+
+    // If all keys failed, 'stream' will be null
+    if (!stream) {
+        console.error("All API keys failed.");
+        return new Response(
+            JSON.stringify({ error: "We are expecting very high traffic now, please try again later!" }),
+            {
+                status: 503, // Service Unavailable
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+            }
+        );
+    }
+    
     const responseStream = new ReadableStream({
       async start(controller) {
         try {
