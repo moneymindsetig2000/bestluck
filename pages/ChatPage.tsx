@@ -115,7 +115,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
   const [notification, setNotification] = useState<string | null>(null);
 
   const prevLoadingStatesRef = useRef<Record<string, boolean>>({});
-  const chatEndRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const chatPaneRefs = useRef<Record<string, HTMLDivElement | null>>({});
   
   const saveChat = useCallback(async (chatId: string) => {
     if (!chatId) return;
@@ -262,9 +262,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
   }, [notification]);
 
   useEffect(() => {
-    // Auto-scroll to the bottom of any chat pane that has new content.
-    Object.values(chatEndRefs.current).forEach(el => {
-      el?.scrollIntoView({ behavior: "smooth" });
+    // Auto-scroll logic: only scroll vertically within each pane.
+    Object.keys(chatPaneRefs.current).forEach(modelName => {
+        const pane = chatPaneRefs.current[modelName];
+        if (pane) {
+            // Check if there is new content that would require scrolling.
+            // This is a simple check; more complex logic could be used if needed.
+            if (pane.scrollHeight > pane.clientHeight) {
+                // By only setting scrollTop, we avoid affecting scrollLeft.
+                pane.scrollTo({ top: pane.scrollHeight, behavior: 'smooth' });
+            }
+        }
     });
   }, [responses]);
 
@@ -478,7 +486,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
 
   const handleSend = async (prompt: string, images: ImagePayload[]) => {
     if (BACKEND_URL.includes("your-project-name")) {
-        alert("Backend URL is not configured. Please edit `pages/ChatPage.tsx` and set the `BACKEND_URL` constant to your Deno Deploy URL.");
+        alert("Please edit `pages/ChatPage.tsx` and set the `BACKEND_URL` constant to your Deno Deploy URL.");
         return;
     }
     
@@ -560,6 +568,16 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
   const isFree = subscription?.plan === 'free';
   const isLimitReached = subscription && subscription.requestsUsed >= subscription.requestsLimit;
 
+  const PlanFeature: React.FC<{ children: React.ReactNode, available: boolean }> = ({ children, available }) => (
+    <li className="flex items-start gap-3">
+      {available ? 
+        <svg className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+        : <svg className="w-5 h-5 text-zinc-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+      }
+      <span className={available ? "text-zinc-200" : "text-zinc-500"}>{children}</span>
+    </li>
+  );
+
   return (
     <div className="flex h-screen bg-[#212121] text-white font-sans overflow-hidden">
       <Sidebar 
@@ -601,6 +619,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                   onToggleEnabled={() => handleToggleModelEnabled(model.name)}
                 />
                 <div 
+                  ref={el => { chatPaneRefs.current[model.name] = el; }}
                   className={`flex-1 overflow-y-auto ${isCollapsed ? 'hidden' : 'block'}`}
                 >
                   {responses[model.name] && responses[model.name].length > 0 ? (
@@ -636,8 +655,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                           </div>
                         </React.Fragment>
                       ))}
-                      {/* FIX: Ensure ref callback returns void to fix TypeScript error. */}
-                      <div ref={el => { chatEndRefs.current[model.name] = el; }} />
                     </div>
                   ) : (
                     <div className="flex h-full items-center justify-center p-4">
@@ -711,32 +728,75 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
         {/* Help & Settings Modal */}
         {showHelpModal && (
             <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowHelpModal(false)}>
-                <div className="bg-[#171717] border border-zinc-700 rounded-lg shadow-xl w-full max-w-2xl text-left" onClick={(e) => e.stopPropagation()}>
+                <div className="bg-[#171717] border border-zinc-700 rounded-lg shadow-xl w-full max-w-3xl text-left" onClick={(e) => e.stopPropagation()}>
                     <div className="p-5 border-b border-zinc-700 flex justify-between items-center">
                         <h2 className="text-xl font-bold text-white">Help & Settings</h2>
                         <button onClick={() => setShowHelpModal(false)} className="text-zinc-400 hover:text-white">&times;</button>
                     </div>
                     <div className="flex">
-                        <nav className="w-1/3 p-3 border-r border-zinc-700">
+                        <nav className="w-48 p-3 border-r border-zinc-700">
                             <ul>
                                 <li><button onClick={() => setActiveSettingTab('subscription')} className={`w-full text-left px-3 py-2 rounded-md ${activeSettingTab === 'subscription' ? 'bg-zinc-700' : 'hover:bg-zinc-800'}`}>Subscription</button></li>
+                                <li><button onClick={() => setActiveSettingTab('usage')} className={`w-full text-left px-3 py-2 rounded-md ${activeSettingTab === 'usage' ? 'bg-zinc-700' : 'hover:bg-zinc-800'}`}>Request Usage</button></li>
                                 <li><button onClick={() => setActiveSettingTab('logout')} className={`w-full text-left px-3 py-2 rounded-md ${activeSettingTab === 'logout' ? 'bg-zinc-700' : 'hover:bg-zinc-800'}`}>Log Out</button></li>
                             </ul>
                         </nav>
-                        <div className="w-2/3 p-5">
+                        <div className="flex-1 p-5 min-h-[350px]">
                             {activeSettingTab === 'subscription' && subscription && (
                                 <div>
-                                    <h3 className="text-lg font-semibold text-white mb-3">Your Plan: <span className="capitalize text-emerald-400">{subscription.plan}</span></h3>
-                                    <p className="text-zinc-400 text-sm">Requests used: {subscription.requestsUsed} / {subscription.requestsLimit}</p>
+                                    <h3 className="text-lg font-semibold text-white mb-4">Compare Plans</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                        {/* Free Plan */}
+                                        <div className={`p-4 rounded-lg border ${isFree ? 'border-emerald-500 bg-emerald-900/30' : 'border-zinc-700 bg-zinc-800/50'}`}>
+                                            <div className="flex justify-between items-center">
+                                                <h4 className="font-bold text-white">Free Plan</h4>
+                                                {isFree && <span className="text-xs font-bold bg-emerald-500 text-black px-2 py-0.5 rounded-full">Current Plan</span>}
+                                            </div>
+                                            <p className="text-zinc-400 mt-1">For light, personal use.</p>
+                                            <p className="text-2xl font-bold text-white my-4">Free</p>
+                                            <ul className="space-y-3 text-zinc-300">
+                                                <PlanFeature available={true}>60 Requests/Month</PlanFeature>
+                                                <PlanFeature available={true}>All premium AI models</PlanFeature>
+                                                <PlanFeature available={true}>Side-by-side comparison</PlanFeature>
+                                                <PlanFeature available={false}>Instant prompt enhancement</PlanFeature>
+                                                <PlanFeature available={false}>Image & Audio features</PlanFeature>
+                                                <PlanFeature available={false}>Community & Promptbook Access</PlanFeature>
+                                            </ul>
+                                        </div>
+                                        {/* Pro Plan */}
+                                        <div className={`p-4 rounded-lg border ${isPro ? 'border-emerald-500 bg-emerald-900/30' : 'border-zinc-700 bg-zinc-800/50'}`}>
+                                            <div className="flex justify-between items-center">
+                                                <h4 className="font-bold text-white">Pro Plan</h4>
+                                                {isPro && <span className="text-xs font-bold bg-emerald-500 text-black px-2 py-0.5 rounded-full">Current Plan</span>}
+                                            </div>
+                                            <p className="text-zinc-400 mt-1">For power users & professionals.</p>
+                                            <p className="text-2xl font-bold text-white my-4">₹999 <span className="text-base font-normal text-zinc-400">/mo</span></p>
+                                            <ul className="space-y-3 text-zinc-300">
+                                                <PlanFeature available={true}>240 Requests/Month</PlanFeature>
+                                                <PlanFeature available={true}>All premium AI models</PlanFeature>
+                                                <PlanFeature available={true}>Side-by-side comparison</PlanFeature>
+                                                <PlanFeature available={true}>Instant prompt enhancement</PlanFeature>
+                                                <PlanFeature available={true}>Image & Audio features</PlanFeature>
+                                                <PlanFeature available={true}>Community & Promptbook Access</PlanFeature>
+                                            </ul>
+                                            {isFree && (
+                                                <button onClick={handleUpgrade} className="mt-6 w-full text-center bg-gradient-to-r from-teal-400 to-green-500 text-black font-bold px-4 py-2 rounded-md hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300">
+                                                    Upgrade to Pro
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            {activeSettingTab === 'usage' && subscription && (
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white mb-3">Your Current Usage</h3>
+                                    <p className="text-zinc-400 text-sm">Requests used this period:</p>
+                                    <p className="text-3xl font-bold text-white my-2">{subscription.requestsUsed} / {subscription.requestsLimit}</p>
                                     <div className="w-full bg-zinc-700 rounded-full h-2.5 my-2">
                                         <div className="bg-emerald-500 h-2.5 rounded-full" style={{width: `${(subscription.requestsUsed / subscription.requestsLimit) * 100}%`}}></div>
                                     </div>
-                                    <p className="text-zinc-500 text-xs">Your plan resets on {formatDateTime(subscription.periodEndDate)}</p>
-                                    {isFree && (
-                                        <button onClick={handleUpgrade} className="mt-6 w-full text-center bg-gradient-to-r from-teal-400 to-green-500 text-black font-bold px-4 py-2 rounded-md hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300">
-                                            Upgrade to Pro (240 Requests/Month)
-                                        </button>
-                                    )}
+                                    <p className="text-zinc-500 text-xs mt-2">Your request limit will reset on {formatDateTime(subscription.periodEndDate)}.</p>
                                 </div>
                             )}
                              {activeSettingTab === 'logout' && (
