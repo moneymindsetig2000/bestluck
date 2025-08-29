@@ -5,6 +5,7 @@ import PromptInput from '../components/chat/PromptInput';
 import { ChatGptIcon, GeminiIcon, DeepSeekIcon, PerplexityIcon, ClaudeIcon, GrokIcon } from '../components/shared/ModelIcons';
 import ResponseWithCitations from '../components/chat/ResponseWithCitations';
 import { safePuterFs, getChatsDirForUser, getSettingsDirForUser } from '../lib/puterUtils';
+import type { Subscription } from '../lib/puterUtils';
 import { User } from '../../App';
 
 // IMPORTANT: Replace this placeholder with your actual Deno Deploy URL.
@@ -27,6 +28,8 @@ const formatDateTime = (isoString: string) => {
 
 interface ChatPageProps {
   user: User;
+  subscription: Subscription;
+  setSubscription: React.Dispatch<React.SetStateAction<Subscription | null>>;
   onLogout: () => void;
 }
 
@@ -96,7 +99,7 @@ const renderWithMarkdown = (text: string | undefined) => {
   });
 };
 
-const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
+const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription, onLogout }) => {
   const [expandedModel, setExpandedModel] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>(initialModels);
@@ -349,6 +352,32 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
     }
   };
 
+  const handleUpgrade = async () => {
+    const now = new Date();
+    // Set expiry to 30 days from now
+    const expiryTimestamp = now.setDate(now.getDate() + 30);
+    
+    const newSub: Subscription = {
+      plan: 'pro',
+      expires: expiryTimestamp,
+    };
+
+    try {
+      const currentPuterUser = await window.puter.auth.getUser();
+      if (!currentPuterUser) throw new Error("User not authenticated");
+      
+      const settingsDir = getSettingsDirForUser(currentPuterUser);
+      const subPath = `${settingsDir}/subscription.json`;
+
+      await safePuterFs.write(subPath, JSON.stringify(newSub));
+      setSubscription(newSub);
+      setNotification('Successfully upgraded to Pro plan!');
+    } catch (error) {
+      console.error("Failed to upgrade subscription:", error);
+      setDbError("An error occurred while upgrading. Please try again.");
+    }
+  };
+
   const streamResponseForModel = async (prompt: string, images: ImagePayload[], model: ModelConfig) => {
     try {
       const response = await fetch(BACKEND_URL, {
@@ -486,6 +515,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
   };
 
   const isAnyModelLoading = Object.values(loadingStates).some(isLoading => isLoading);
+  const isPro = subscription.plan === 'pro';
+  const isFree = subscription.plan === 'free';
 
   return (
     <div className="flex h-screen bg-[#212121] text-white font-sans overflow-hidden">
@@ -674,8 +705,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
                   <h3 className="text-2xl font-bold text-white mb-6">Manage Subscription</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Free Plan Card */}
-                    <div className="bg-[#27272a] border-2 border-zinc-700 rounded-xl p-6 flex flex-col relative">
-                      <span className="absolute top-4 right-4 text-xs font-semibold bg-zinc-600 text-zinc-200 px-2 py-1 rounded-full">Current Plan</span>
+                    <div className={`bg-[#27272a] border-2 ${isFree ? 'border-zinc-500' : 'border-zinc-700'} rounded-xl p-6 flex flex-col relative`}>
+                      {isFree && <span className="absolute top-4 right-4 text-xs font-semibold bg-zinc-600 text-zinc-200 px-2 py-1 rounded-full">Current Plan</span>}
                       <h4 className="text-xl font-bold text-white">Free Plan</h4>
                       <p className="text-3xl font-bold text-white mt-2">$0 <span className="text-xl font-medium text-zinc-400">/ month</span></p>
                       <ul className="space-y-3 mt-6 text-zinc-300 text-sm flex-grow">
@@ -686,7 +717,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
                       <button disabled className="mt-6 w-full text-center py-3 rounded-lg bg-zinc-700 text-zinc-400 font-semibold cursor-not-allowed">Your Plan</button>
                     </div>
                     {/* Pro Plan Card */}
-                    <div className="bg-[#27272a] border-2 border-green-400/30 hover:border-green-400/60 rounded-xl p-6 flex flex-col transition-colors">
+                    <div className={`bg-[#27272a] border-2 ${isPro ? 'border-green-400/60' : 'border-green-400/30 hover:border-green-400/60'} rounded-xl p-6 flex flex-col transition-colors relative`}>
+                      {isPro && <span className="absolute top-4 right-4 text-xs font-semibold bg-green-500/20 text-green-300 px-2 py-1 rounded-full">Current Plan</span>}
                       <h4 className="text-xl font-bold text-white">Pro Plan</h4>
                       <p className="text-3xl font-bold text-white mt-2">₹999 <span className="text-xl font-medium text-zinc-400">/ month</span></p>
                       <ul className="space-y-3 mt-6 text-zinc-300 text-sm flex-grow">
@@ -696,8 +728,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
                           <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Image & Audio features</li>
                           <li className="flex items-center gap-3"><svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>Community & Promptbook</li>
                       </ul>
-                      <button className="mt-6 w-full text-center bg-gradient-to-r from-teal-400 to-green-500 text-black font-bold py-3 rounded-lg hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300 transform hover:-translate-y-0.5 group">
-                          Upgrade to Pro
+                      <button 
+                        onClick={handleUpgrade}
+                        disabled={isPro}
+                        className="mt-6 w-full text-center bg-gradient-to-r from-teal-400 to-green-500 text-black font-bold py-3 rounded-lg hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300 transform hover:-translate-y-0.5 group disabled:bg-none disabled:bg-green-600/50 disabled:text-zinc-300 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+                      >
+                          {isPro ? 'Your Current Plan' : 'Upgrade to Pro'}
                       </button>
                     </div>
                   </div>
@@ -718,7 +754,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, onLogout }) => {
                       <p className="text-sm text-zinc-400 font-mono mt-1 truncate">UID: {user.uid}</p>
                     </div>
                   </div>
-                  
+
                   <div className="mt-10">
                     <h4 className="text-lg font-semibold text-red-500 mb-3">Danger Zone</h4>
                     <div className="bg-zinc-900 border border-red-500/40 rounded-xl p-5 flex justify-between items-center">

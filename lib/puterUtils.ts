@@ -4,6 +4,11 @@ declare global {
   }
 }
 
+export interface Subscription {
+  plan: 'free' | 'pro';
+  expires: number | null; // A timestamp for when the pro plan expires
+}
+
 // Singleton promise to ensure the SDK is loaded only once.
 let puterSDKPromise: Promise<void> | null = null;
 
