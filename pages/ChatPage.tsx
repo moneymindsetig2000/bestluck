@@ -70,14 +70,17 @@ interface ChatDocument {
   lastUpdatedAt: string;
 }
 
-const initialModels: ModelConfig[] = [
-  { name: 'ChatGPT', icon: <ChatGptIcon />, enabled: true },
-  { name: 'Gemini', icon: <GeminiIcon />, enabled: true },
-  { name: 'DeepSeek', icon: <DeepSeekIcon />, enabled: true },
-  { name: 'Perplexity', icon: <PerplexityIcon />, enabled: true },
-  { name: 'Claude', icon: <ClaudeIcon />, enabled: true },
-  { name: 'Grok', icon: <GrokIcon />, enabled: true },
+const initialModels: Omit<ModelConfig, 'enabled'>[] = [
+  { name: 'ChatGPT', icon: <ChatGptIcon /> },
+  { name: 'Gemini', icon: <GeminiIcon /> },
+  { name: 'DeepSeek', icon: <DeepSeekIcon /> },
+  { name: 'Perplexity', icon: <PerplexityIcon /> },
+  { name: 'Claude', icon: <ClaudeIcon /> },
+  { name: 'Grok', icon: <GrokIcon /> },
 ];
+
+const FREE_PLAN_LOCKED_MODELS = ['Gemini', 'Perplexity', 'Grok'];
+
 
 const UserIcon = () => (
   <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center flex-shrink-0">
@@ -98,10 +101,43 @@ const renderWithMarkdown = (text: string | undefined) => {
   });
 };
 
+const UpgradeModal = ({ onClose, onUpgrade }: { onClose: () => void, onUpgrade: () => void }) => {
+    return (
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 animate-fade-in" onClick={onClose}>
+        <div className="bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl p-6 w-full max-w-md text-left transform transition-all" onClick={(e) => e.stopPropagation()}>
+          <h2 className="text-xl font-bold text-white flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+            Upgrade to Pro to Unlock
+          </h2>
+          <p className="text-zinc-400 mt-3 mb-4">You're currently on the Free plan. Upgrade to Pro to access all premium AI models, get higher request limits, and unlock advanced features.</p>
+          <ul className="space-y-3 text-zinc-300">
+             <li className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span>Access to all 6 premium AI models.</span>
+            </li>
+             <li className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span>4x more requests (240/month).</span>
+            </li>
+          </ul>
+          <div className="flex justify-end gap-4 mt-6">
+            <button onClick={onClose} className="px-5 py-2 bg-zinc-600 hover:bg-zinc-500 text-white font-semibold rounded-md transition-colors">
+              Maybe Later
+            </button>
+            <button onClick={onUpgrade} className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-md transition-colors">
+              Upgrade Now
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+};
+
+
 const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription, onLogout }) => {
   const [expandedModel, setExpandedModel] = useState<string | null>(null);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>(initialModels);
+  const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>([]);
   const [responses, setResponses] = useState<Record<string, Response[]>>({});
   const [loadingStates, setLoadingStates] = useState<Record<string, boolean>>({});
   
@@ -111,6 +147,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [chatToDelete, setChatToDelete] = useState<ChatSession | null>(null);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [activeSettingTab, setActiveSettingTab] = useState('subscription');
   const [notification, setNotification] = useState<string | null>(null);
 
@@ -167,6 +204,17 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
       setDbError("Failed to save chat to Puter.");
     }
   }, [responses, chatSessions]);
+
+  useEffect(() => {
+    if (subscription) {
+        const isFree = subscription.plan === 'free';
+        const initialConfigs = initialModels.map(model => ({
+            ...model,
+            enabled: isFree ? !FREE_PLAN_LOCKED_MODELS.includes(model.name) : true,
+        }));
+        setModelConfigs(initialConfigs);
+    }
+  }, [subscription]);
 
   useEffect(() => {
     const loadInitialData = async () => {
@@ -281,11 +329,21 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
   };
 
   const handleToggleModelEnabled = (modelName: string) => {
-    setModelConfigs(prevConfigs =>
-      prevConfigs.map(m =>
-        m.name === modelName ? { ...m, enabled: !m.enabled } : m
-      )
-    );
+    const isFree = subscription?.plan === 'free';
+    const isLocked = FREE_PLAN_LOCKED_MODELS.includes(modelName);
+    const modelToToggle = modelConfigs.find(m => m.name === modelName);
+
+    // If a free user tries to enable a locked model, show the upgrade modal
+    if (isFree && isLocked && !modelToToggle?.enabled) {
+        setShowUpgradeModal(true);
+    } else {
+        // Otherwise, allow toggling (for Pro users, or for disabling a model on free plan)
+        setModelConfigs(prevConfigs =>
+          prevConfigs.map(m =>
+            m.name === modelName ? { ...m, enabled: !m.enabled } : m
+          )
+        );
+    }
   };
   
   const createTitleFromPrompt = (prompt: string): string => {
@@ -365,6 +423,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
         setNotification('DeepSeek does not support images and has been disabled.');
       }
     }
+  };
+
+  const handleUpgradeFromModal = () => {
+    setShowUpgradeModal(false);
+    setShowHelpModal(true);
+    setActiveSettingTab('subscription');
   };
 
   const handleUpgrade = async () => {
@@ -598,6 +662,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
           {modelConfigs.map((model) => {
             const isExpanded = expandedModel === model.name;
             const isCollapsed = expandedModel !== null && !isExpanded;
+            const isLocked = isFree && FREE_PLAN_LOCKED_MODELS.includes(model.name);
             
             let widthClass = 'basis-[30%] flex-shrink-0';
             if (isExpanded) {
@@ -615,6 +680,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                   model={model}
                   isExpanded={isExpanded}
                   isCollapsed={isCollapsed}
+                  isLocked={isLocked}
                   onToggleExpand={() => handleToggleExpand(model.name)}
                   onToggleEnabled={() => handleToggleModelEnabled(model.name)}
                 />
@@ -813,6 +879,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                 </div>
             </div>
         )}
+        {showUpgradeModal && <UpgradeModal onClose={() => setShowUpgradeModal(false)} onUpgrade={handleUpgradeFromModal} />}
       </div>
     </div>
   );
