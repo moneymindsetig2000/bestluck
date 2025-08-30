@@ -206,6 +206,9 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
   }, [responses, chatSessions]);
 
   useEffect(() => {
+    // This effect sets the model configurations based on the user's subscription plan.
+    // It runs only when the subscription plan changes (e.g., free -> pro),
+    // not on every request. This preserves the user's manual toggle choices.
     if (subscription) {
         const isFree = subscription.plan === 'free';
         const initialConfigs = initialModels.map(model => ({
@@ -214,7 +217,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
         }));
         setModelConfigs(initialConfigs);
     }
-  }, [subscription]);
+  }, [subscription?.plan]);
 
   useEffect(() => {
     const loadInitialData = async () => {
