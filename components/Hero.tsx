@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import FadeInSection from './FadeInSection';
 import { ChatGptIcon, DeepSeekIcon, GeminiIcon, PerplexityIcon } from './shared/ModelIcons';
@@ -54,7 +55,7 @@ const Hero: React.FC<HeroProps> = ({ onLogin }) => {
             </FadeInSection>
             <FadeInSection className="delay-150">
               <p className="mt-6 max-w-lg text-lg text-gray-400">
-                Stop juggling tabs and subscriptions - AI Clavis gives you access to all best-in-class AI models for just $12/month. That's almost half of what you'd pay for a single premium AI chat subscription.
+                Stop juggling tabs and subscriptions - AI Clavis gives you access to all best-in-class AI models for just $15/month. That's almost half of what you'd pay for a single premium AI chat subscription.
               </p>
             </FadeInSection>
             <FadeInSection className="delay-300">

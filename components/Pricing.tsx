@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import FadeInSection from './FadeInSection';
 import Logo from './Logo';
@@ -144,22 +145,21 @@ const Pricing: React.FC<PricingProps> = ({ onLogin }) => {
                                 <button onClick={() => setPlan('monthly')} className={`p-4 border rounded-xl text-left transition-all duration-200 ${plan === 'monthly' ? 'bg-green-500/10 border-green-400' : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-500'}`}>
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <p className="text-2xl font-bold text-white">₹999<span className="text-base font-medium text-zinc-400">/Month</span></p>
+                                            <p className="text-2xl font-bold text-white">₹1199<span className="text-base font-medium text-zinc-400">/Month</span></p>
                                             <p className="text-sm text-zinc-400 mt-1">Monthly</p>
                                         </div>
                                         {plan === 'monthly' ? <CircleCheckIcon /> : <CircleIcon />}
                                     </div>
                                 </button>
-                                <button onClick={() => setPlan('yearly')} className={`p-4 border rounded-xl text-left transition-all duration-200 ${plan === 'yearly' ? 'bg-green-500/10 border-green-400' : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-500'}`}>
+                                <button disabled className="p-4 border rounded-xl text-left transition-all duration-200 bg-zinc-800/50 border-zinc-700 opacity-60 cursor-not-allowed">
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <p className="text-2xl font-bold text-white">₹9,999<span className="text-base font-medium text-zinc-400">/Year</span></p>
+                                            <p className="text-2xl font-bold text-white">Coming Soon!</p>
                                             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs mt-1">
-                                                <span className="text-green-400 font-semibold">Yearly (Save 17%)</span>
-                                                <span className="text-teal-400 bg-teal-400/10 px-1.5 py-0.5 rounded-full">+Quarterly Webinar Access</span>
+                                                <span className="text-zinc-400">Yearly Plan</span>
                                             </div>
                                         </div>
-                                        {plan === 'yearly' ? <CircleCheckIcon /> : <CircleIcon />}
+                                        <CircleIcon />
                                     </div>
                                 </button>
                             </div>

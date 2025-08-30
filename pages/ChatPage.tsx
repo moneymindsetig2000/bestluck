@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from '../components/chat/Sidebar';
 import ChatHeader from '../components/chat/ChatHeader';
@@ -839,7 +840,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                                                 {isPro && <span className="text-xs font-bold bg-emerald-500 text-black px-2 py-0.5 rounded-full">Current Plan</span>}
                                             </div>
                                             <p className="text-zinc-400 mt-1">For power users & professionals.</p>
-                                            <p className="text-2xl font-bold text-white my-4">₹999 <span className="text-base font-normal text-zinc-400">/mo</span></p>
+                                            <p className="text-2xl font-bold text-white my-4">₹1199 <span className="text-base font-normal text-zinc-400">/mo</span></p>
                                             <ul className="space-y-3 text-zinc-300">
                                                 <PlanFeature available={true}>240 Requests/Month</PlanFeature>
                                                 <PlanFeature available={true}>All premium AI models</PlanFeature>
