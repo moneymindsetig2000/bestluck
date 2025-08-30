@@ -760,7 +760,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
             You have reached your monthly request limit. Your limit will reset on {formatDateTime(subscription.periodEndDate)}.
           </div>
         )}
-        <PromptInput onSend={handleSend} isLoading={isAnyModelLoading} isSignedIn={!!user} onImagesChange={handleImagesChange} isLimitReached={isLimitReached} />
+        <PromptInput onSend={handleSend} isLoading={isAnyModelLoading} isSignedIn={!!user} onImagesChange={handleImagesChange} isLimitReached={isLimitReached} isFreePlan={isFree} />
          {notification && (
             <div className="absolute bottom-28 right-4 bg-yellow-900/70 backdrop-blur-md border border-yellow-500/40 text-yellow-300 px-4 py-3 rounded-lg shadow-lg animate-fade-in z-20 flex items-center gap-3">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
@@ -825,10 +825,10 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                                             <p className="text-2xl font-bold text-white my-4">Free</p>
                                             <ul className="space-y-3 text-zinc-300">
                                                 <PlanFeature available={true}>60 Requests/Month</PlanFeature>
-                                                <PlanFeature available={true}>All premium AI models</PlanFeature>
+                                                <PlanFeature available={true}>Access to 3 core AI models</PlanFeature>
                                                 <PlanFeature available={true}>Side-by-side comparison</PlanFeature>
                                                 <PlanFeature available={false}>Instant prompt enhancement</PlanFeature>
-                                                <PlanFeature available={false}>Image & Audio features</PlanFeature>
+                                                <PlanFeature available={true}>1 Image Upload per Request</PlanFeature>
                                                 <PlanFeature available={false}>Community & Promptbook Access</PlanFeature>
                                             </ul>
                                         </div>

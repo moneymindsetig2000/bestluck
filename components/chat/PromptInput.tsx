@@ -6,6 +6,7 @@ interface PromptInputProps {
   isSignedIn: boolean;
   onImagesChange: (files: File[]) => void;
   isLimitReached?: boolean;
+  isFreePlan?: boolean;
 }
 
 interface ImageFile {
@@ -60,7 +61,7 @@ const ComingSoonModal = ({ onClose }: { onClose: () => void }) => {
 };
 
 
-const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn, onImagesChange, isLimitReached }) => {
+const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn, onImagesChange, isLimitReached, isFreePlan }) => {
     const [text, setText] = React.useState('');
     const [images, setImages] = React.useState<ImageFile[]>([]);
     const [showComingSoonModal, setShowComingSoonModal] = React.useState(false);
@@ -103,15 +104,17 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn
             const newImageFiles: ImageFile[] = [];
             let processedCount = 0;
 
-            files.forEach(file => {
+            const filesToProcess = isFreePlan ? [files[0]] : files;
+
+            filesToProcess.forEach(file => {
                 const reader = new FileReader();
                 reader.onload = (loadEvent) => {
                     if (loadEvent.target?.result) {
                         newImageFiles.push({ dataUrl: loadEvent.target.result as string, file });
                     }
                     processedCount++;
-                    if (processedCount === files.length) {
-                        const updatedImages = [...images, ...newImageFiles];
+                    if (processedCount === filesToProcess.length) {
+                        const updatedImages = isFreePlan ? newImageFiles : [...images, ...newImageFiles];
                         setImages(updatedImages);
                         onImagesChange(updatedImages.map(i => i.file));
                     }
@@ -188,7 +191,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn
                                 ref={fileInputRef}
                                 className="hidden"
                                 accept="image/*"
-                                multiple
+                                multiple={!isFreePlan}
                                 onChange={handleFileChange}
                                 disabled={isDisabled}
                             />
