@@ -151,6 +151,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [activeSettingTab, setActiveSettingTab] = useState('subscription');
   const [notification, setNotification] = useState<string | null>(null);
+  const [couponCode, setCouponCode] = useState('');
 
   const prevLoadingStatesRef = useRef<Record<string, boolean>>({});
   const chatPaneRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -463,6 +464,16 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
       console.error("Failed to upgrade subscription:", error);
       setDbError("An error occurred while upgrading. Please try again.");
     }
+  };
+
+  const handleClaimCoupon = () => {
+    // Placeholder for now.
+    if(couponCode.trim() === '') {
+        setNotification("Please enter a coupon code.");
+        return;
+    }
+    setNotification(`Invalid coupon code: "${couponCode}"`);
+    setCouponCode('');
   };
 
   const streamResponseForModel = (prompt: string, images: ImagePayload[], model: ModelConfig, history: any[], signal: AbortSignal): Promise<void> => {
@@ -874,6 +885,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                             <ul>
                                 <li><button onClick={() => setActiveSettingTab('subscription')} className={`w-full text-left px-3 py-2 rounded-md ${activeSettingTab === 'subscription' ? 'bg-zinc-700' : 'hover:bg-zinc-800'}`}>Subscription</button></li>
                                 <li><button onClick={() => setActiveSettingTab('usage')} className={`w-full text-left px-3 py-2 rounded-md ${activeSettingTab === 'usage' ? 'bg-zinc-700' : 'hover:bg-zinc-800'}`}>Request Usage</button></li>
+                                <li><button onClick={() => setActiveSettingTab('coupons')} className={`w-full text-left px-3 py-2 rounded-md ${activeSettingTab === 'coupons' ? 'bg-zinc-700' : 'hover:bg-zinc-800'}`}>Coupons</button></li>
                                 <li><button onClick={() => setActiveSettingTab('logout')} className={`w-full text-left px-3 py-2 rounded-md ${activeSettingTab === 'logout' ? 'bg-zinc-700' : 'hover:bg-zinc-800'}`}>Log Out</button></li>
                             </ul>
                         </nav>
@@ -933,6 +945,27 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                                         <div className="bg-emerald-500 h-2.5 rounded-full" style={{width: `${(subscription.requestsUsed / subscription.requestsLimit) * 100}%`}}></div>
                                     </div>
                                     <p className="text-zinc-500 text-xs mt-2">Your request limit will reset on {formatDateTime(subscription.periodEndDate)}.</p>
+                                </div>
+                            )}
+                            {activeSettingTab === 'coupons' && (
+                                <div>
+                                    <h3 className="text-lg font-semibold text-white mb-3">Redeem Coupon</h3>
+                                    <p className="text-zinc-400 text-sm mb-4">Have a coupon code? Enter it below to claim your free requests and extend your AI journey.</p>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="text"
+                                            placeholder="Enter coupon code"
+                                            value={couponCode}
+                                            onChange={(e) => setCouponCode(e.target.value)}
+                                            className="flex-grow bg-zinc-800 border border-zinc-600 rounded-md px-3 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                        />
+                                        <button 
+                                          onClick={handleClaimCoupon}
+                                          className="text-center bg-gradient-to-r from-teal-400 to-green-500 text-black font-bold px-4 py-2 rounded-md hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300"
+                                        >
+                                          Claim
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                              {activeSettingTab === 'logout' && (
