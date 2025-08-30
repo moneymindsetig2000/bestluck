@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "npm:@google/genai";
 import { serve } from "https://deno.land/std@0.182.0/http/server.ts";
 
@@ -30,7 +31,7 @@ async function handler(req: Request): Promise<Response> {
   }
 
   try {
-    const { prompt, modelName, images } = await req.json();
+    const { prompt, modelName, images, history } = await req.json();
 
     if ((!prompt || prompt.trim() === '') && (!images || images.length === 0)) {
        return new Response(JSON.stringify({ error: "Missing prompt or images" }), {
@@ -73,9 +74,9 @@ async function handler(req: Request): Promise<Response> {
         systemInstruction = `${baseInstruction} Do not include any citations or source lists in your response.`;
     }
     
-    const parts = [];
+    const userParts = [];
     if (prompt && prompt.trim() !== '') {
-        parts.push({ text: prompt });
+        userParts.push({ text: prompt });
     }
     if (images && Array.isArray(images) && images.length > 0) {
         const imageParts = images.map((image: ImagePayload) => ({
@@ -84,8 +85,11 @@ async function handler(req: Request): Promise<Response> {
                 data: image.data,
             },
         }));
-        parts.push(...imageParts);
+        userParts.push(...imageParts);
     }
+
+    const newUserContent = { role: 'user', parts: userParts };
+    const fullContents = [...(history || []), newUserContent];
     
     let stream = null;
 
@@ -97,7 +101,7 @@ async function handler(req: Request): Promise<Response> {
             const ai = new GoogleGenAI({ apiKey: key });
             stream = await ai.models.generateContentStream({
                 model: GEMINI_MODEL,
-                contents: { parts },
+                contents: fullContents,
                 config: {
                     systemInstruction: systemInstruction,
                 }

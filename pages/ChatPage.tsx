@@ -154,6 +154,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
 
   const prevLoadingStatesRef = useRef<Record<string, boolean>>({});
   const chatPaneRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const abortControllerRef = useRef<AbortController | null>(null);
   
   const saveChat = useCallback(async (chatId: string) => {
     if (!chatId) return;
@@ -464,7 +465,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
     }
   };
 
-  const streamResponseForModel = (prompt: string, images: ImagePayload[], model: ModelConfig): Promise<void> => {
+  const streamResponseForModel = (prompt: string, images: ImagePayload[], model: ModelConfig, history: any[], signal: AbortSignal): Promise<void> => {
     return new Promise(async (resolve, reject) => {
         try {
           const response = await fetch(BACKEND_URL, {
@@ -476,7 +477,9 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
               prompt: prompt,
               images: images,
               modelName: model.name,
+              history: history,
             }),
+            signal, // Pass the abort signal to the fetch request
           });
     
           if (!response.ok || !response.body) {
@@ -535,6 +538,20 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
           resolve();
 
         } catch (error: any) {
+           if (error.name === 'AbortError') {
+                // When aborted, update the UI with a "stopped" message and then reject
+                setResponses(prev => {
+                    const modelHistory = [...(prev[model.name] || [])];
+                    if (modelHistory.length === 0) return prev;
+                    const lastResponseIndex = modelHistory.length - 1;
+                    const currentAnswer = modelHistory[lastResponseIndex].answer;
+                    if (!currentAnswer.includes("**-- Generation stopped --**")) {
+                        modelHistory[lastResponseIndex] = { ...modelHistory[lastResponseIndex], answer: currentAnswer + "\n\n**-- Generation stopped --**" };
+                    }
+                    return { ...prev, [model.name]: modelHistory };
+                });
+                return reject(error); // Reject to notify Promise.all
+            }
           console.error(`Error streaming response for ${model.name}:`, error);
           const errorMessage = `**Error:** Could not get response from ${model.name}. Please check the backend connection and try again. Is the URL \`${BACKEND_URL}\` correct?`;
           setResponses(prev => {
@@ -565,6 +582,37 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
 
     let chatIdToUse = activeChatId;
     const isNewChat = !chatIdToUse;
+    
+    const targetModels = expandedModel
+      ? modelConfigs.filter(m => m.name === expandedModel)
+      : modelConfigs.filter(m => m.enabled);
+    if (targetModels.length === 0) return;
+    
+    // Before any state updates, prepare history payloads for each model
+    const historyPayloads: Record<string, any[]> = {};
+    if (!isNewChat) {
+        targetModels.forEach(model => {
+            historyPayloads[model.name] = (responses[model.name] || [])
+                // Filter out incomplete/failed turns from history
+                .filter(ex => ex.answer && ex.answer.trim() !== '' && !ex.answer.startsWith('**Error:**'))
+                .flatMap(exchange => {
+                    const userParts: any[] = [];
+                    if (exchange.prompt) userParts.push({ text: exchange.prompt });
+                    if (exchange.images) {
+                        userParts.push(...exchange.images.map(img => ({
+                            inlineData: { mimeType: img.mimeType, data: img.data }
+                        })));
+                    }
+                    // Ensure user part is not empty before adding
+                    if (userParts.length === 0) return [];
+
+                    return [
+                        { role: 'user', parts: userParts },
+                        { role: 'model', parts: [{ text: exchange.answer }] }
+                    ];
+                });
+        });
+    }
 
     if (isNewChat) {
       chatIdToUse = crypto.randomUUID();
@@ -584,11 +632,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
       });
     }
 
-    const targetModels = expandedModel
-      ? modelConfigs.filter(m => m.name === expandedModel)
-      : modelConfigs.filter(m => m.enabled);
-    if (targetModels.length === 0) return;
-
     setResponses(currentResponses => {
       const responsesForThisChat = isNewChat ? {} : currentResponses;
       const nextResponses = { ...responsesForThisChat };
@@ -605,7 +648,10 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
     });
     setLoadingStates(updatedLoadingStates);
 
-    const streamPromises = targetModels.map(model => streamResponseForModel(prompt, images, model));
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
+
+    const streamPromises = targetModels.map(model => streamResponseForModel(prompt, images, model, historyPayloads[model.name] || [], signal));
 
     try {
         await Promise.all(streamPromises);
@@ -626,8 +672,20 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
             }
         }
 
-    } catch (error) {
-        console.error("One or more model streams failed.", error);
+    } catch (error: any) {
+        if (error.name !== 'AbortError') {
+            console.error("One or more model streams failed.", error);
+        } else {
+            console.log("Stream generation was cancelled by the user.");
+        }
+    } finally {
+      abortControllerRef.current = null;
+    }
+  };
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
   };
 
@@ -761,7 +819,15 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
             You have reached your monthly request limit. Your limit will reset on {formatDateTime(subscription.periodEndDate)}.
           </div>
         )}
-        <PromptInput onSend={handleSend} isLoading={isAnyModelLoading} isSignedIn={!!user} onImagesChange={handleImagesChange} isLimitReached={isLimitReached} isFreePlan={isFree} />
+        <PromptInput 
+          onSend={handleSend} 
+          onStop={handleStop}
+          isLoading={isAnyModelLoading} 
+          isSignedIn={!!user} 
+          onImagesChange={handleImagesChange} 
+          isLimitReached={isLimitReached} 
+          isFreePlan={isFree} 
+        />
          {notification && (
             <div className="absolute bottom-28 right-4 bg-yellow-900/70 backdrop-blur-md border border-yellow-500/40 text-yellow-300 px-4 py-3 rounded-lg shadow-lg animate-fade-in z-20 flex items-center gap-3">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">

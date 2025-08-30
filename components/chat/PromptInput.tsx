@@ -1,7 +1,9 @@
+
 import React from 'react';
 
 interface PromptInputProps {
   onSend: (prompt: string, images: { mimeType: string; data: string }[]) => void;
+  onStop: () => void;
   isLoading: boolean;
   isSignedIn: boolean;
   onImagesChange: (files: File[]) => void;
@@ -61,7 +63,7 @@ const ComingSoonModal = ({ onClose }: { onClose: () => void }) => {
 };
 
 
-const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn, onImagesChange, isLimitReached, isFreePlan }) => {
+const PromptInput: React.FC<PromptInputProps> = ({ onSend, onStop, isLoading, isSignedIn, onImagesChange, isLimitReached, isFreePlan }) => {
     const [text, setText] = React.useState('');
     const [images, setImages] = React.useState<ImageFile[]>([]);
     const [showComingSoonModal, setShowComingSoonModal] = React.useState(false);
@@ -174,7 +176,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn
                         value={text}
                         onInput={handleInput}
                         onKeyDown={handleKeyDown}
-                        disabled={isDisabled}
+                        disabled={!isSignedIn || isLimitReached}
                     />
                     <div className="flex items-center justify-between mt-2">
                         <div className="flex items-center gap-4 text-sm text-gray-400">
@@ -201,16 +203,28 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, isLoading, isSignedIn
                             </button>
                         </div>
                         <div className="flex items-center gap-3">
-                            <button 
-                                className="w-8 h-8 flex items-center justify-center bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:bg-zinc-600 disabled:cursor-not-allowed" 
-                                onClick={handleSendClick}
-                                disabled={(!text.trim() && images.length === 0) || isDisabled}
-                                aria-label="Send message"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                                </svg>
-                            </button>
+                            {isLoading ? (
+                                <button 
+                                    className="w-8 h-8 flex items-center justify-center bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+                                    onClick={onStop}
+                                    aria-label="Stop generating"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M6 6h12v12H6z"/>
+                                    </svg>
+                                </button>
+                            ) : (
+                                <button 
+                                    className="w-8 h-8 flex items-center justify-center bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:bg-zinc-600 disabled:cursor-not-allowed" 
+                                    onClick={handleSendClick}
+                                    disabled={(!text.trim() && images.length === 0) || !isSignedIn || isLimitReached}
+                                    aria-label="Send message"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                                    </svg>
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
