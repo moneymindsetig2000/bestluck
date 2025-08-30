@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import ChatPage from './pages/ChatPage';
 import LandingPage from './pages/LandingPage';
@@ -24,6 +25,13 @@ const App: React.FC = () => {
 
   const checkAuthState = useCallback(async () => {
     setIsAuthChecking(true);
+    
+    const DEFAULT_FREE_PLAN: Omit<Subscription, 'periodStartDate' | 'periodEndDate'> = {
+        plan: 'free',
+        requestsUsed: 0,
+        requestsLimit: 60, // Source of truth for free plan limit
+    };
+
     try {
       await ensurePuterToken();
       const puterUser = await window.puter.auth.getUser();
@@ -41,8 +49,9 @@ const App: React.FC = () => {
           const blob = await safePuterFs.read(subPath);
           const content = await blob.text();
           let subData = JSON.parse(content) as Subscription;
+          let needsUpdate = false;
           
-          // Check for subscription period reset
+          // 1. Check for subscription period reset
           const now = Date.now();
           if (subData.periodEndDate && now > subData.periodEndDate) {
               console.log('Subscription period expired, resetting.');
@@ -56,8 +65,20 @@ const App: React.FC = () => {
                   periodStartDate: newStartDate,
                   periodEndDate: newEndDate.getTime(),
               };
-              // Save the reset subscription back to the file
-              await safePuterFs.write(subPath, JSON.stringify(subData));
+              needsUpdate = true;
+          }
+
+          // 2. Check if plan configuration is outdated
+          if (subData.plan === 'free' && subData.requestsLimit !== DEFAULT_FREE_PLAN.requestsLimit) {
+            console.log(`Updating free plan request limit from ${subData.requestsLimit} to ${DEFAULT_FREE_PLAN.requestsLimit}.`);
+            subData.requestsLimit = DEFAULT_FREE_PLAN.requestsLimit;
+            needsUpdate = true;
+          }
+
+          // If any changes were made, write the file back
+          if (needsUpdate) {
+            await safePuterFs.write(subPath, JSON.stringify(subData));
+            console.log('Subscription file updated with new values.');
           }
 
           setSubscription(subData);
@@ -70,9 +91,7 @@ const App: React.FC = () => {
           endDate.setDate(endDate.getDate() + 30);
 
           const newSub: Subscription = { 
-            plan: 'free',
-            requestsUsed: 0,
-            requestsLimit: 60, // Free plan limit
+            ...DEFAULT_FREE_PLAN,
             periodStartDate: startDate,
             periodEndDate: endDate.getTime(),
           };
