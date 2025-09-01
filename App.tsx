@@ -48,12 +48,25 @@ const App: React.FC = () => {
         try {
           const blob = await safePuterFs.read(subPath);
           const content = await blob.text();
-          let subData = JSON.parse(content) as Subscription;
+          let subData = JSON.parse(content) as any; // Read as 'any' to handle old/new structures
           let needsUpdate = false;
-          
-          // 1. Check for subscription period reset
           const now = Date.now();
-          if (subData.periodEndDate && now > subData.periodEndDate) {
+          
+          // Data Migration: Check for old structure and add date fields if missing
+          if (typeof subData.periodEndDate === 'undefined' || typeof subData.periodStartDate === 'undefined') {
+              console.log('Old subscription format detected. Migrating to new date-based format.');
+              const newStartDate = now;
+              const newEndDate = new Date(newStartDate);
+              newEndDate.setDate(newEndDate.getDate() + 30);
+              
+              subData.periodStartDate = newStartDate;
+              subData.periodEndDate = newEndDate.getTime();
+              // Reset requests used on migration to give user a fresh start for the period
+              subData.requestsUsed = 0; 
+              delete subData.expires; // Clean up old field if it exists
+              needsUpdate = true;
+          } else if (now > subData.periodEndDate) {
+              // 1. Check for subscription period reset on existing, valid structures
               console.log('Subscription period expired, resetting.');
               const newStartDate = now;
               const newEndDate = new Date(newStartDate);
@@ -68,7 +81,7 @@ const App: React.FC = () => {
               needsUpdate = true;
           }
 
-          // 2. Check if plan configuration is outdated
+          // 2. Check if plan configuration is outdated (e.g., free limit changed)
           if (subData.plan === 'free' && subData.requestsLimit !== DEFAULT_FREE_PLAN.requestsLimit) {
             console.log(`Updating free plan request limit from ${subData.requestsLimit} to ${DEFAULT_FREE_PLAN.requestsLimit}.`);
             subData.requestsLimit = DEFAULT_FREE_PLAN.requestsLimit;
@@ -81,7 +94,7 @@ const App: React.FC = () => {
             console.log('Subscription file updated with new values.');
           }
 
-          setSubscription(subData);
+          setSubscription(subData as Subscription);
           console.log('Found existing subscription:', subData);
         } catch (error) {
           // Assuming error means file doesn't exist, create it.
