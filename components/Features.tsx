@@ -41,16 +41,6 @@ const SettingsIcon = () => (
 
 
 // Mockup Components
-const PlayButtonOverlay = () => (
-    <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-        <button className="w-12 h-12 md:w-16 md:h-16 bg-white/10 rounded-full flex items-center justify-center backdrop-blur-sm group transition-transform hover:scale-110 border border-white/20">
-            <svg className="w-6 h-6 md:w-8 md:h-8 text-white/80 group-hover:text-white transition-colors ml-1" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M8 5v14l11-7z" />
-            </svg>
-        </button>
-    </div>
-);
-
 const MockupCompare = () => (
     <div className="relative aspect-video bg-black/30 border border-zinc-700 rounded-xl flex items-center justify-center p-4">
         <div className="w-full h-full flex gap-4 overflow-hidden">
@@ -79,7 +69,6 @@ const MockupCompare = () => (
                 </div>
             </div>
         </div>
-        <PlayButtonOverlay />
     </div>
 );
 
@@ -105,7 +94,6 @@ const MockupWindowFrame: React.FC<{children: React.ReactNode, footerContent?: Re
                 {footerContent}
             </div>
         )}
-        <PlayButtonOverlay />
     </div>
 );
 

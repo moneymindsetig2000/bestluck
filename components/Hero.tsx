@@ -105,11 +105,7 @@ const Hero: React.FC<HeroProps> = ({ onLogin }) => {
 
                 {/* Body with Play Button */}
                 <div className="flex-grow flex items-center justify-center bg-black/10">
-                    <button className="w-16 h-16 md:w-20 md:h-20 bg-white/5 rounded-full flex items-center justify-center backdrop-blur-sm group transition-transform hover:scale-110 border border-white/10">
-                        <svg className="w-8 h-8 md:w-10 md:h-10 text-white/70 group-hover:text-white transition-colors ml-1" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M8 5v14l11-7z" />
-                        </svg>
-                    </button>
+                    {/* Play button removed */}
                 </div>
 
                 {/* Footer */}
