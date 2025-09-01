@@ -153,6 +153,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
   const [notification, setNotification] = useState<string | null>(null);
   const [couponCode, setCouponCode] = useState('');
 
+  const [systemInstruction, setSystemInstruction] = useState('');
+  const [tempSystemInstruction, setTempSystemInstruction] = useState('');
+  const [instructionGeneratorInput, setInstructionGeneratorInput] = useState('');
+  const [generatedInstruction, setGeneratedInstruction] = useState('');
+  const [isGeneratingInstruction, setIsGeneratingInstruction] = useState(false);
+
   const prevLoadingStatesRef = useRef<Record<string, boolean>>({});
   const chatPaneRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -228,6 +234,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
         setChatSessions([]);
         setActiveChatId(null);
         setResponses({});
+        setSystemInstruction('');
         return;
       }
   
@@ -282,6 +289,24 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
             }
           }
         }
+        
+        // Load System Instruction
+        const settingsDir = getSettingsDirForUser(currentPuterUser);
+        const instructionPath = `${settingsDir}/system_instruction.json`;
+        try {
+            const blob = await safePuterFs.read(instructionPath);
+            const content = await blob.text();
+            const data = JSON.parse(content);
+            if (data.instruction) {
+                setSystemInstruction(data.instruction);
+                setTempSystemInstruction(data.instruction);
+            }
+        } catch (error) {
+            console.log("No custom system instruction found. Using default.");
+            setSystemInstruction('');
+            setTempSystemInstruction('');
+        }
+
       } catch (error: any) {
         console.error('Failed to load initial data from Puter:', error);
         if (error?.code === 'permission_denied' || error?.status === 403) {
@@ -476,6 +501,52 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
     setCouponCode('');
   };
 
+  const handleGenerateInstruction = async () => {
+    if (!instructionGeneratorInput.trim()) return;
+    setIsGeneratingInstruction(true);
+    setGeneratedInstruction('');
+    try {
+        const response = await fetch(BACKEND_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                task: 'generateInstruction',
+                instructionPrompt: instructionGeneratorInput
+            })
+        });
+        if (!response.ok) {
+            throw new Error('Failed to generate instruction.');
+        }
+        const data = await response.json();
+        setGeneratedInstruction(data.instruction);
+    } catch (error) {
+        console.error("Error generating system instruction:", error);
+        setGeneratedInstruction("Error: Could not generate instruction. Please try again.");
+    } finally {
+        setIsGeneratingInstruction(false);
+    }
+  };
+
+  const handleApplyInstruction = async () => {
+    const instructionToSave = tempSystemInstruction;
+    try {
+        const currentPuterUser = await window.puter.auth.getUser();
+        if (!currentPuterUser) throw new Error("User not authenticated");
+        
+        const settingsDir = getSettingsDirForUser(currentPuterUser);
+        const instructionPath = `${settingsDir}/system_instruction.json`;
+        
+        await safePuterFs.mkdir(settingsDir, { createMissingParents: true });
+        await safePuterFs.write(instructionPath, JSON.stringify({ instruction: instructionToSave }));
+        
+        setSystemInstruction(instructionToSave);
+        setNotification('System instruction applied successfully!');
+    } catch (error) {
+        console.error("Failed to save system instruction:", error);
+        setDbError("Could not save system instruction.");
+    }
+  };
+
   const streamResponseForModel = (prompt: string, images: ImagePayload[], model: ModelConfig, history: any[], signal: AbortSignal): Promise<void> => {
     return new Promise(async (resolve, reject) => {
         try {
@@ -489,6 +560,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
               images: images,
               modelName: model.name,
               history: history,
+              customSystemInstruction: systemInstruction,
             }),
             signal, // Pass the abort signal to the fetch request
           });
@@ -881,15 +953,16 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                         <button onClick={() => setShowHelpModal(false)} className="text-zinc-400 hover:text-white">&times;</button>
                     </div>
                     <div className="flex">
-                        <nav className="w-48 p-3 border-r border-zinc-700">
+                        <nav className="w-56 p-3 border-r border-zinc-700">
                             <ul>
                                 <li><button onClick={() => setActiveSettingTab('subscription')} className={`w-full text-left px-3 py-2 rounded-md ${activeSettingTab === 'subscription' ? 'bg-zinc-700' : 'hover:bg-zinc-800'}`}>Subscription</button></li>
+                                <li><button onClick={() => setActiveSettingTab('system_instructions')} className={`w-full text-left px-3 py-2 rounded-md ${activeSettingTab === 'system_instructions' ? 'bg-zinc-700' : 'hover:bg-zinc-800'}`}>System Instructions</button></li>
                                 <li><button onClick={() => setActiveSettingTab('usage')} className={`w-full text-left px-3 py-2 rounded-md ${activeSettingTab === 'usage' ? 'bg-zinc-700' : 'hover:bg-zinc-800'}`}>Request Usage</button></li>
                                 <li><button onClick={() => setActiveSettingTab('coupons')} className={`w-full text-left px-3 py-2 rounded-md ${activeSettingTab === 'coupons' ? 'bg-zinc-700' : 'hover:bg-zinc-800'}`}>Coupons</button></li>
                                 <li><button onClick={() => setActiveSettingTab('logout')} className={`w-full text-left px-3 py-2 rounded-md ${activeSettingTab === 'logout' ? 'bg-zinc-700' : 'hover:bg-zinc-800'}`}>Log Out</button></li>
                             </ul>
                         </nav>
-                        <div className="flex-1 p-5 min-h-[350px]">
+                        <div className="flex-1 p-5 min-h-[450px] overflow-y-auto">
                             {activeSettingTab === 'subscription' && subscription && (
                                 <div>
                                     <h3 className="text-lg font-semibold text-white mb-4">Compare Plans</h3>
@@ -936,6 +1009,57 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                                     </div>
                                 </div>
                             )}
+                            {activeSettingTab === 'system_instructions' && (
+                                <div className="space-y-4">
+                                    <h3 className="text-lg font-semibold text-white">Custom System Instructions</h3>
+                                    <p className="text-zinc-400 text-sm">Define a custom role or persona for the AIs to follow in all conversations. You can generate one with AI or write your own.</p>
+                                    
+                                    <div>
+                                        <label className="text-sm font-medium text-zinc-300">1. Describe the role you want</label>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <input
+                                                type="text"
+                                                placeholder="e.g., A helpful assistant for writing code"
+                                                value={instructionGeneratorInput}
+                                                onChange={(e) => setInstructionGeneratorInput(e.target.value)}
+                                                className="flex-grow bg-zinc-800 border border-zinc-600 rounded-md px-3 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                            />
+                                            <button onClick={handleGenerateInstruction} disabled={isGeneratingInstruction} className="text-center bg-zinc-600 text-white font-bold px-4 py-2 rounded-md hover:bg-zinc-500 transition-colors disabled:opacity-50 disabled:cursor-wait">
+                                                {isGeneratingInstruction ? 'Generating...' : 'Generate'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-sm font-medium text-zinc-300">2. AI-Generated Instruction (Editable)</label>
+                                        <textarea
+                                            value={generatedInstruction}
+                                            onChange={(e) => setGeneratedInstruction(e.target.value)}
+                                            placeholder="Generated instructions will appear here..."
+                                            rows={5}
+                                            className="w-full mt-1 bg-zinc-800 border border-zinc-600 rounded-md px-3 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                        />
+                                        <button onClick={() => setTempSystemInstruction(generatedInstruction)} disabled={!generatedInstruction || isGeneratingInstruction} className="text-xs mt-1 text-emerald-400 hover:text-emerald-300 disabled:opacity-50">
+                                            Use This &#x2193;
+                                        </button>
+                                    </div>
+                                    
+                                    <div>
+                                        <label className="text-sm font-medium text-zinc-300">3. Final System Instruction</label>
+                                        <textarea
+                                            value={tempSystemInstruction}
+                                            onChange={(e) => setTempSystemInstruction(e.target.value)}
+                                            placeholder="Paste the generated instruction here or write your own from scratch..."
+                                            rows={5}
+                                            className="w-full mt-1 bg-zinc-900 border border-zinc-600 rounded-md px-3 py-2 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                        />
+                                    </div>
+                                    
+                                    <button onClick={handleApplyInstruction} className="w-full text-center bg-gradient-to-r from-teal-400 to-green-500 text-black font-bold px-4 py-2 rounded-md hover:shadow-lg hover:shadow-green-500/20 transition-all duration-300">
+                                      Apply Instruction
+                                    </button>
+                                </div>
+                            )}
                             {activeSettingTab === 'usage' && subscription && (
                                 <div>
                                     <h3 className="text-lg font-semibold text-white mb-3">Your Current Usage</h3>
@@ -972,6 +1096,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                                 <div>
                                     <h3 className="text-lg font-semibold text-white mb-3">Log Out</h3>
                                     <p className="text-zinc-400 text-sm mb-4">Are you sure you want to log out of your account?</p>
+
                                     <button onClick={onLogout} className="w-full text-center bg-red-600 text-white font-bold px-4 py-2 rounded-md hover:bg-red-700 transition-colors">
                                         Log Out
                                     </button>

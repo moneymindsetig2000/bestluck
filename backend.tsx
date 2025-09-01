@@ -16,34 +16,68 @@ interface ImagePayload {
   data: string;
 }
 
-async function handler(req: Request): Promise<Response> {
-  // Handle CORS preflight requests
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+// Function to get a random API key from the list
+const getApiKey = (): string | null => {
+    const apiKeysEnv = process.env.API_KEYS;
+    if (!apiKeysEnv) {
+        console.error("API_KEYS environment variable is not set.");
+        return null;
+    }
+    const apiKeys = apiKeysEnv.split(',').map(k => k.trim()).filter(Boolean);
+    if (apiKeys.length === 0) {
+        console.error("API_KEYS environment variable is empty or invalid.");
+        return null;
+    }
+    // For the single instruction generation, we can just use the first key.
+    return apiKeys[0];
+}
 
-  // Only allow POST requests for the main logic.
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method Not Allowed" }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+async function handleInstructionGeneration(req: Request): Promise<Response> {
+    const { instructionPrompt } = await req.json();
+    if (!instructionPrompt) {
+        return new Response(JSON.stringify({ error: "Missing instructionPrompt" }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+    }
 
-  try {
-    const { prompt, modelName, images, history } = await req.json();
+    const apiKey = getApiKey();
+    if (!apiKey) {
+        return new Response(JSON.stringify({ error: "Server configuration error." }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+    }
+
+    try {
+        const ai = new GoogleGenAI({ apiKey });
+        const metaPrompt = `You are an expert system prompt engineer. A user wants an AI with a specific persona. Your task is to expand their brief description into a detailed, well-structured system prompt that an AI can follow. Do NOT include any conversational text, introductory sentences, explanations about what you are doing, or markdown separators like '---'. Your entire response must be ONLY the system prompt itself, ready to be used directly. User's description: "${instructionPrompt}"`;
+        const response = await ai.models.generateContent({
+            model: GEMINI_MODEL,
+            contents: metaPrompt,
+        });
+
+        return new Response(JSON.stringify({ instruction: response.text }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+    } catch (error) {
+        console.error("Error generating instruction:", error);
+        return new Response(JSON.stringify({ error: "Failed to generate instruction." }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+    }
+}
+
+async function handleChat(req: Request): Promise<Response> {
+    const { prompt, modelName, images, history, customSystemInstruction } = await req.json();
 
     if ((!prompt || prompt.trim() === '') && (!images || images.length === 0)) {
        return new Response(JSON.stringify({ error: "Missing prompt or images" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
 
     if (!modelName) {
       return new Response(JSON.stringify({ error: "Missing modelName" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
     
@@ -52,26 +86,27 @@ async function handler(req: Request): Promise<Response> {
     if (!apiKeysEnv) {
         console.error("API_KEYS environment variable is not set.");
         return new Response(JSON.stringify({ error: "Server configuration error." }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
     }
     const apiKeys = apiKeysEnv.split(',').map(k => k.trim()).filter(Boolean);
     if (apiKeys.length === 0) {
         console.error("API_KEYS environment variable is empty or invalid.");
         return new Response(JSON.stringify({ error: "Server configuration error." }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
     }
 
-    let systemInstruction: string;
-    const baseInstruction = `You are an AI assistant impersonating ${modelName}. Your goal is to respond to the user's prompt in a way that accurately reflects the known style, tone, capabilities, and typical response format of ${modelName}. Do not, under any circumstances, reveal that you are an impersonation or that you are using another model. Maintain the persona of ${modelName} throughout the conversation.`;
+    let systemInstruction = `You are an AI assistant impersonating ${modelName}. Your goal is to respond to the user's prompt in a way that accurately reflects the known style, tone, capabilities, and typical response format of ${modelName}. Do not, under any circumstances, reveal that you are an impersonation or that you are using another model. Maintain the persona of ${modelName} throughout the conversation.`;
+    
+    if (customSystemInstruction && customSystemInstruction.trim() !== '') {
+        systemInstruction += `\n\nAdditionally, you must strictly adhere to the following user-defined instructions for your persona:\n\n---\n${customSystemInstruction}\n---`;
+    }
 
     if (modelName === 'Perplexity') {
-        systemInstruction = `${baseInstruction} You MUST invent some plausible sources for your information. Add citation markers like [1], [2] in the text where the information is used. After the main body of your response, you MUST list these sources on new lines. The format for the source list is critical for the application to work. It must be exactly: '[1]: Title of Source (https://example.com/source1)'. There should be no other text or characters after the source list.`;
+        systemInstruction += ` You MUST invent some plausible sources for your information. Add citation markers like [1], [2] in the text where the information is used. After the main body of your response, you MUST list these sources on new lines. The format for the source list is critical for the application to work. It must be exactly: '[1]: Title of Source (https://example.com/source1)'. There should be no other text or characters after the source list.`;
     } else {
-        systemInstruction = `${baseInstruction} Do not include any citations or source lists in your response.`;
+        systemInstruction += ` Do not include any citations or source lists in your response.`;
     }
     
     const userParts = [];
@@ -80,10 +115,7 @@ async function handler(req: Request): Promise<Response> {
     }
     if (images && Array.isArray(images) && images.length > 0) {
         const imageParts = images.map((image: ImagePayload) => ({
-            inlineData: {
-                mimeType: image.mimeType,
-                data: image.data,
-            },
+            inlineData: { mimeType: image.mimeType, data: image.data }
         }));
         userParts.push(...imageParts);
     }
@@ -92,37 +124,24 @@ async function handler(req: Request): Promise<Response> {
     const fullContents = [...(history || []), newUserContent];
     
     let stream = null;
-
-    // Iterate through API keys until one succeeds
-    for (let i = 0; i < apiKeys.length; i++) {
-        const key = apiKeys[i];
+    for (const key of apiKeys) {
         try {
-            console.log(`Attempting to generate content with API key index ${i}`);
             const ai = new GoogleGenAI({ apiKey: key });
             stream = await ai.models.generateContentStream({
                 model: GEMINI_MODEL,
                 contents: fullContents,
-                config: {
-                    systemInstruction: systemInstruction,
-                }
+                config: { systemInstruction }
             });
-            console.log(`Successfully connected with API key index ${i}. Starting stream.`);
-            break; // Exit the loop on success
+            break; 
         } catch (error) {
-            console.error(`API key index ${i} failed. Error:`, error.message);
-            // If this was the last key, the loop will end and stream will be null.
+            console.error(`API key failed. Error:`, error.message);
         }
     }
 
-    // If all keys failed, 'stream' will be null
     if (!stream) {
-        console.error("All API keys failed.");
         return new Response(
             JSON.stringify({ error: "We are expecting very high traffic now, please try again later!" }),
-            {
-                status: 503, // Service Unavailable
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            }
+            { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     }
     
@@ -132,8 +151,7 @@ async function handler(req: Request): Promise<Response> {
           for await (const chunk of stream) {
             const text = chunk.text;
             if (text) {
-              const encoded = new TextEncoder().encode(text);
-              controller.enqueue(encoded);
+              controller.enqueue(new TextEncoder().encode(text));
             }
           }
         } catch (error) {
@@ -148,19 +166,35 @@ async function handler(req: Request): Promise<Response> {
     return new Response(responseStream, {
       headers: { ...corsHeaders, "Content-Type": "text/plain; charset=utf-8" },
     });
+}
+
+async function handler(req: Request): Promise<Response> {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method Not Allowed" }), {
+      status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+  }
+
+  try {
+    const body = await req.clone().json(); // Clone to read body safely
+    if (body.task === 'generateInstruction') {
+        return await handleInstructionGeneration(req);
+    } else {
+        return await handleChat(req);
+    }
   } catch (error) {
-    // Specifically handle JSON parsing errors, which can happen with malformed bodies.
     if (error instanceof SyntaxError) {
-        console.error("JSON Parsing Error:", error.message);
         return new Response(JSON.stringify({ error: "Invalid JSON in request body. " + error.message }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
     }
     console.error("Handler error:", error);
     return new Response(JSON.stringify({ error: error.message || "An internal server error occurred." }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   }
 }
