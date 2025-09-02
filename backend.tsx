@@ -150,18 +150,31 @@ async function handleChat(req: Request): Promise<Response> {
     let stream = null;
 
     if (modelName === 'Perplexity') {
-        // Use a hardcoded API key specifically for web search functionality.
-        // IMPORTANT: Replace the placeholder with your actual Google Custom Search JSON API key.
-        const WEB_SEARCH_API_KEY = "AIzaSyAok7h0EBhgvVhjVcsqK-g1-sMgsZMnxLQ";
-        try {
-            const ai = new GoogleGenAI({ apiKey: WEB_SEARCH_API_KEY });
-            stream = await ai.models.generateContentStream({
-                model: GEMINI_MODEL,
-                contents: fullContents,
-                config: { ...config, systemInstruction }
-            });
-        } catch (error) {
-            console.error(`Web search API key failed. Error:`, error.message);
+        // Use a pool of hardcoded API keys for web search functionality.
+        // The system will try each key in order until one succeeds.
+        // IMPORTANT: Replace these placeholders with your actual Google API keys.
+        const WEB_SEARCH_API_KEYS = [
+            "AIzaSyAok7h0EBhgvVhjVcsqK-g1-sMgsZMnxLQ", // Current active key
+            "AIzaSyDax1ZojwLSWaqzwt5KNXKc4Y7DmUhZARM",
+            "AIzaSyA4Bsklo0U4iwFiWq0QjA4AsFRSomncsww",
+            "AIzaSyAi4fMTvDwa3JJTSFF8DSVf5cpsOkuaFlw",
+            "AIzaSyBXqxlvGlTWU7umWoALp84F8dd2fgVJ7r8",
+        ];
+
+        for (const key of WEB_SEARCH_API_KEYS) {
+            try {
+                const ai = new GoogleGenAI({ apiKey: key });
+                stream = await ai.models.generateContentStream({
+                    model: GEMINI_MODEL,
+                    contents: fullContents,
+                    config: { ...config, systemInstruction }
+                });
+                console.log(`Web search successful with one of the keys.`);
+                break; // If successful, exit the loop
+            } catch (error) {
+                console.error(`Web search API key failed. Error:`, error.message, `Continuing to next key.`);
+                // If an error occurs, the loop will continue to the next key.
+            }
         }
     } else {
         // For all other models, use the API keys from the environment variables.
