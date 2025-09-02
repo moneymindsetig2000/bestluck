@@ -28,9 +28,47 @@ const getApiKey = (): string | null => {
         console.error("API_KEYS environment variable is empty or invalid.");
         return null;
     }
-    // For the single instruction generation, we can just use the first key.
+    // For single-shot tasks, we can just use the first key.
     return apiKeys[0];
 }
+
+async function handleRefinePrompt(req: Request): Promise<Response> {
+    const { prompt } = await req.json();
+    if (!prompt) {
+        return new Response(JSON.stringify({ error: "Missing prompt to refine" }), {
+            status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+    }
+
+    const apiKey = getApiKey();
+    if (!apiKey) {
+        return new Response(JSON.stringify({ error: "Server configuration error." }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+    }
+
+    try {
+        const ai = new GoogleGenAI({ apiKey });
+        const metaPrompt = `You are an expert at prompt engineering. Your task is to refine the following user-provided prompt to make it more detailed, clear, and effective for generating high-quality responses from a large language model. Do not respond to the prompt, just improve it. Return ONLY the refined prompt, without any introductory text, explanations, or markdown formatting.
+
+User Prompt: "${prompt}"`;
+        
+        const response = await ai.models.generateContent({
+            model: GEMINI_MODEL,
+            contents: metaPrompt,
+        });
+
+        return new Response(JSON.stringify({ refinedPrompt: response.text }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+    } catch (error) {
+        console.error("Error refining prompt:", error);
+        return new Response(JSON.stringify({ error: "Failed to refine prompt." }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+        });
+    }
+}
+
 
 async function handleInstructionGeneration(req: Request): Promise<Response> {
     const { instructionPrompt } = await req.json();
@@ -183,6 +221,8 @@ async function handler(req: Request): Promise<Response> {
     const body = await req.clone().json(); // Clone to read body safely
     if (body.task === 'generateInstruction') {
         return await handleInstructionGeneration(req);
+    } else if (body.task === 'refinePrompt') {
+        return await handleRefinePrompt(req);
     } else {
         return await handleChat(req);
     }

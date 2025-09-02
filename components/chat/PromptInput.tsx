@@ -19,6 +19,10 @@ interface ImageFile {
 // @ts-ignore
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+// IMPORTANT: Replace this placeholder with your actual Deno Deploy URL.
+// Your URL will look something like: https://your-project-name.deno.dev
+const BACKEND_URL = "https://backendforai.deno.dev"; 
+
 const ComingSoonModal = ({ onClose }: { onClose: () => void }) => {
   return (
     <div 
@@ -72,6 +76,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, onStop, isLoading, is
     const [showComingSoonModal, setShowComingSoonModal] = React.useState(false);
     const [isListening, setIsListening] = React.useState(false);
     const [liveTranscript, setLiveTranscript] = React.useState('');
+    const [isRefining, setIsRefining] = React.useState(false);
 
     const textareaRef = React.useRef<HTMLTextAreaElement>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -288,6 +293,44 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, onStop, isLoading, is
     const handleCancelRecording = () => {
         cleanupRecognition();
     };
+
+    const handleRefinePrompt = async () => {
+        if (!text.trim() || isRefining || isLoading) return;
+
+        setIsRefining(true);
+        try {
+            const response = await fetch(BACKEND_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    task: 'refinePrompt',
+                    prompt: text,
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to refine prompt.');
+            }
+
+            const data = await response.json();
+            if (data.refinedPrompt) {
+                setText(data.refinedPrompt);
+                // Trigger auto-resize after state update
+                setTimeout(() => {
+                    if (textareaRef.current) {
+                        textareaRef.current.style.height = 'auto';
+                        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+                    }
+                }, 0);
+            }
+        } catch (error) {
+            console.error("Error refining prompt:", error);
+            // Optionally: Set an error message to display to the user
+        } finally {
+            setIsRefining(false);
+        }
+    };
     
     React.useEffect(() => {
       return () => cleanupRecognition();
@@ -335,7 +378,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, onStop, isLoading, is
                             value={text}
                             onInput={handleInput}
                             onKeyDown={handleKeyDown}
-                            disabled={!isSignedIn || isLimitReached}
+                            disabled={!isSignedIn || isLimitReached || isRefining}
                         />
                     ) : (
                          <div className="w-full flex items-center justify-between gap-3 min-h-[48px] px-1">
@@ -366,7 +409,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, onStop, isLoading, is
                             <button 
                                 onClick={() => setShowComingSoonModal(true)}
                                 className="flex items-center gap-1.5 hover:text-white transition-colors disabled:opacity-50"
-                                disabled={!isSignedIn}
+                                disabled={!isSignedIn || isRefining}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path><path d="M5 3v4"></path><path d="M19 17v4"></path><path d="M3 5h4"></path><path d="M17 19h4"></path></svg>
                                 Generate Image
@@ -378,9 +421,9 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, onStop, isLoading, is
                                 accept="image/*"
                                 multiple={!isFreePlan}
                                 onChange={handleFileChange}
-                                disabled={isDisabled || isListening}
+                                disabled={isDisabled || isListening || isRefining}
                             />
-                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 hover:text-white transition-colors disabled:opacity-50 disabled:hover:text-gray-400" disabled={isDisabled || isListening}>
+                            <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1.5 hover:text-white transition-colors disabled:opacity-50 disabled:hover:text-gray-400" disabled={isDisabled || isListening || isRefining}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" x2="12" y1="3" y2="15"></line></svg>
                                 Upload Image
                             </button>
@@ -401,15 +444,30 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, onStop, isLoading, is
                                     <button 
                                         onClick={handleListen} 
                                         className="w-8 h-8 flex items-center justify-center bg-zinc-600 rounded-lg hover:bg-zinc-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                        disabled={isDisabled}
+                                        disabled={isDisabled || isRefining}
                                         aria-label="Speech to Text"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line></svg>
                                     </button>
+                                    <button
+                                        onClick={handleRefinePrompt}
+                                        className="w-8 h-8 flex items-center justify-center bg-zinc-600 rounded-lg hover:bg-zinc-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        disabled={isDisabled || !text.trim() || isRefining}
+                                        aria-label="Refine Prompt"
+                                    >
+                                        {isRefining ? (
+                                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                        ) : (
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path><path d="M5 3v4"></path><path d="M19 17v4"></path><path d="M3 5h4"></path><path d="M17 19h4"></path></svg>
+                                        )}
+                                    </button>
                                     <button 
                                         className="w-8 h-8 flex items-center justify-center bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:bg-zinc-600 disabled:cursor-not-allowed" 
                                         onClick={handleSendClick}
-                                        disabled={(!text.trim() && images.length === 0) || !isSignedIn || isLimitReached}
+                                        disabled={(!text.trim() && images.length === 0) || !isSignedIn || isLimitReached || isRefining}
                                         aria-label="Send message"
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 24 24" fill="currentColor">
