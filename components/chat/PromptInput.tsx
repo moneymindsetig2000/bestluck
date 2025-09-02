@@ -89,10 +89,18 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, onStop, isLoading, is
     const silenceTimeoutRef = React.useRef<number | null>(null);
     const liveTranscriptRef = React.useRef('');
     
+    // This effect hook centralizes the textarea resizing logic.
+    // It runs whenever the `text` state changes, from any source.
+    React.useEffect(() => {
+        if (textareaRef.current) {
+            textareaRef.current.style.height = 'auto'; // Reset height to correctly calculate scrollHeight
+            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+        }
+    }, [text]);
+
     const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         setText(e.target.value);
-        e.target.style.height = 'auto';
-        e.target.style.height = `${e.target.scrollHeight}px`;
+        // Resizing logic is now handled by the useEffect hook.
     };
 
     const handleSendClick = () => {
@@ -106,9 +114,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, onStop, isLoading, is
             setText('');
             setImages([]);
             onImagesChange([]);
-            if (textareaRef.current) {
-                textareaRef.current.style.height = 'auto';
-            }
+            // Resizing logic is now handled by the useEffect hook.
         }
     };
 
@@ -316,13 +322,7 @@ const PromptInput: React.FC<PromptInputProps> = ({ onSend, onStop, isLoading, is
             const data = await response.json();
             if (data.refinedPrompt) {
                 setText(data.refinedPrompt);
-                // Trigger auto-resize after state update
-                setTimeout(() => {
-                    if (textareaRef.current) {
-                        textareaRef.current.style.height = 'auto';
-                        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-                    }
-                }, 0);
+                // The useEffect hook will handle the resize automatically.
             }
         } catch (error) {
             console.error("Error refining prompt:", error);
