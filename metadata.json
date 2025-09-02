@@ -1,5 +1,7 @@
 {
   "name": "AI Clavis Clone",
   "description": "A clone of the AI Clavis landing page, showcasing a unified interface for interacting with multiple AI models simultaneously. Built with React and Tailwind CSS.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "microphone"
+  ]
 }
