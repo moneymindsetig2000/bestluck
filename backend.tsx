@@ -119,30 +119,16 @@ async function handleChat(req: Request): Promise<Response> {
       });
     }
     
-    // Get multiple API keys from the environment variable
-    const apiKeysEnv = process.env.API_KEYS;
-    if (!apiKeysEnv) {
-        console.error("API_KEYS environment variable is not set.");
-        return new Response(JSON.stringify({ error: "Server configuration error." }), {
-            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-    }
-    const apiKeys = apiKeysEnv.split(',').map(k => k.trim()).filter(Boolean);
-    if (apiKeys.length === 0) {
-        console.error("API_KEYS environment variable is empty or invalid.");
-        return new Response(JSON.stringify({ error: "Server configuration error." }), {
-            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
-    }
-
     let systemInstruction = `You are an AI assistant impersonating ${modelName}. Your goal is to respond to the user's prompt in a way that accurately reflects the known style, tone, capabilities, and typical response format of ${modelName}. Do not, under any circumstances, reveal that you are an impersonation or that you are using another model. Maintain the persona of ${modelName} throughout the conversation.`;
     
     if (customSystemInstruction && customSystemInstruction.trim() !== '') {
         systemInstruction += `\n\nAdditionally, you must strictly adhere to the following user-defined instructions for your persona:\n\n---\n${customSystemInstruction}\n---`;
     }
-
+    
+    const config: any = {};
     if (modelName === 'Perplexity') {
-        systemInstruction += ` You MUST invent some plausible sources for your information. Add citation markers like [1], [2] in the text where the information is used. After the main body of your response, you MUST list these sources on new lines. The format for the source list is critical for the application to work. It must be exactly: '[1]: Title of Source (https://example.com/source1)'. There should be no other text or characters after the source list.`;
+        config.tools = [{googleSearch: {}}];
+        systemInstruction += ` You have access to Google Search. When you use it to answer the user's query, you MUST cite your sources. For each piece of information from a source, add a citation marker like [1], [2], etc. The citation number corresponds to the order of sources provided to you. Do NOT generate the source list at the end of your response; it will be added automatically. If you do not use Google Search for a query, do not add any citation markers.`;
     } else {
         systemInstruction += ` Do not include any citations or source lists in your response.`;
     }
@@ -162,17 +148,50 @@ async function handleChat(req: Request): Promise<Response> {
     const fullContents = [...(history || []), newUserContent];
     
     let stream = null;
-    for (const key of apiKeys) {
+
+    if (modelName === 'Perplexity') {
+        // Use a hardcoded API key specifically for web search functionality.
+        // IMPORTANT: Replace the placeholder with your actual Google Custom Search JSON API key.
+        const WEB_SEARCH_API_KEY = "AIzaSyAok7h0EBhgvVhjVcsqK-g1-sMgsZMnxLQ";
         try {
-            const ai = new GoogleGenAI({ apiKey: key });
+            const ai = new GoogleGenAI({ apiKey: WEB_SEARCH_API_KEY });
             stream = await ai.models.generateContentStream({
                 model: GEMINI_MODEL,
                 contents: fullContents,
-                config: { systemInstruction }
+                config: { ...config, systemInstruction }
             });
-            break; 
         } catch (error) {
-            console.error(`API key failed. Error:`, error.message);
+            console.error(`Web search API key failed. Error:`, error.message);
+        }
+    } else {
+        // For all other models, use the API keys from the environment variables.
+        const apiKeysEnv = process.env.API_KEYS;
+        if (!apiKeysEnv) {
+            console.error("API_KEYS environment variable is not set.");
+            return new Response(JSON.stringify({ error: "Server configuration error for AI responses." }), {
+                status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+            });
+        }
+        const apiKeys = apiKeysEnv.split(',').map(k => k.trim()).filter(Boolean);
+        if (apiKeys.length === 0) {
+            console.error("API_KEYS environment variable is empty or invalid.");
+            return new Response(JSON.stringify({ error: "Server configuration error for AI responses." }), {
+                status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
+            });
+        }
+        
+        for (const key of apiKeys) {
+            try {
+                const ai = new GoogleGenAI({ apiKey: key });
+                stream = await ai.models.generateContentStream({
+                    model: GEMINI_MODEL,
+                    contents: fullContents,
+                    config: { ...config, systemInstruction }
+                });
+                break; 
+            } catch (error) {
+                console.error(`API key failed. Error:`, error.message);
+            }
         }
     }
 
@@ -184,21 +203,50 @@ async function handleChat(req: Request): Promise<Response> {
     }
     
     const responseStream = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of stream) {
-            const text = chunk.text;
-            if (text) {
-              controller.enqueue(new TextEncoder().encode(text));
+        async start(controller) {
+            let accumulatedText = "";
+            const groundingSources = new Map<string, { title: string; uri: string }>();
+            try {
+                for await (const chunk of stream) {
+                    const text = chunk.text;
+                    if (text) {
+                        if (modelName === 'Perplexity') accumulatedText += text;
+                        controller.enqueue(new TextEncoder().encode(text));
+                    }
+
+                    if (modelName === 'Perplexity') {
+                        const groundingChunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks;
+                        if (groundingChunks) {
+                            for (const gchunk of groundingChunks) {
+                                if (gchunk.web && gchunk.web.uri && gchunk.web.title) {
+                                    groundingSources.set(gchunk.web.uri, gchunk.web);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (modelName === 'Perplexity' && groundingSources.size > 0) {
+                    const sourcesArray = Array.from(groundingSources.values());
+                    let citationText = "\n\n";
+                    let citationIndex = 1;
+                    for (const source of sourcesArray) {
+                        if (accumulatedText.includes(`[${citationIndex}]`)) {
+                            citationText += `[${citationIndex}]: ${source.title} (${source.uri})\n`;
+                        }
+                        citationIndex++;
+                    }
+                    if (citationText.trim().length > 0) {
+                        controller.enqueue(new TextEncoder().encode(citationText));
+                    }
+                }
+            } catch (error) {
+                console.error("Error during Gemini stream processing:", error);
+                controller.error(error);
+            } finally {
+                controller.close();
             }
-          }
-        } catch (error) {
-          console.error("Error during Gemini stream processing:", error);
-          controller.error(error);
-        } finally {
-          controller.close();
-        }
-      },
+        },
     });
 
     return new Response(responseStream, {
