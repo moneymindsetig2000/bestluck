@@ -9,13 +9,19 @@ import { safePuterFs, getChatsDirForUser, getSettingsDirForUser } from '../lib/p
 import type { Subscription } from '../lib/puterUtils';
 import { User } from '../../App';
 
-// IMPORTANT: Replace this placeholder with your actual Deno Deploy URL.
+// IMPORTANT: Replace this placeholder with your actual Deno Deploy URL for AI responses.
 // Your URL will look something like: https://your-project-name.deno.dev
 const BACKEND_URL = "https://backendforai.deno.dev"; 
+
+// IMPORTANT: Replace this placeholder with your Deno Deploy URL for payments.
+// This should point to where you've deployed the 'backendforpayment.tsx' file.
+const BACKEND_PAYMENT_URL = "https://backendforpayment.deno.dev";
+
 
 declare global {
   interface Window {
     puter: any;
+    Razorpay: any;
   }
 }
 
@@ -461,19 +467,19 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
     setShowHelpModal(true);
     setActiveSettingTab('subscription');
   };
-
-  const handleUpgrade = async () => {
-      const startDate = Date.now();
-      const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + 30);
+  
+  const finalizeProSubscription = async () => {
+    const startDate = Date.now();
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 30);
       
-      const newSub: Subscription = {
+    const newSub: Subscription = {
         plan: 'pro',
         requestsUsed: 0,
         requestsLimit: 240, // Pro plan limit
         periodStartDate: startDate,
         periodEndDate: endDate.getTime(),
-      };
+    };
 
     try {
       const currentPuterUser = await window.puter.auth.getUser();
@@ -488,6 +494,79 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
     } catch (error) {
       console.error("Failed to upgrade subscription:", error);
       setDbError("An error occurred while upgrading. Please try again.");
+    }
+  };
+
+  const handleUpgrade = async () => {
+    if (BACKEND_PAYMENT_URL.includes("backendforpayment.deno.dev")) {
+        alert("Please edit `pages/ChatPage.tsx` and set the `BACKEND_PAYMENT_URL` constant to your Deno Deploy URL for payments.");
+        return;
+    }
+
+    try {
+        setNotification("Preparing your secure payment...");
+        // 1. Create Order
+        const orderResponse = await fetch(`${BACKEND_PAYMENT_URL}/create-order`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+        });
+
+        if (!orderResponse.ok) throw new Error("Failed to create payment order.");
+        const order = await orderResponse.json();
+        
+        // 2. Open Razorpay Checkout
+        const options = {
+            key: process.env.RAZORPAY_KEY_ID,
+            amount: order.amount,
+            currency: order.currency,
+            name: "AI Clavis Pro",
+            description: "Monthly Subscription",
+            order_id: order.id,
+            handler: async (response: any) => {
+                setNotification("Verifying payment...");
+                // 3. Verify Payment
+                const verificationResponse = await fetch(`${BACKEND_PAYMENT_URL}/verify-payment`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        razorpay_payment_id: response.razorpay_payment_id,
+                        razorpay_order_id: response.razorpay_order_id,
+                        razorpay_signature: response.razorpay_signature
+                    }),
+                });
+
+                const result = await verificationResponse.json();
+                
+                if (result.verified) {
+                    // 4. Finalize Subscription on successful verification
+                    await finalizeProSubscription();
+                } else {
+                    setNotification("Payment verification failed. Please contact support.");
+                    setDbError("Payment verification failed.");
+                }
+            },
+            prefill: {
+                name: user.displayName || "Valued User",
+            },
+            theme: {
+                color: "#10b981"
+            }
+        };
+        const rzp = new window.Razorpay(options);
+        rzp.on('payment.failed', function (response: any){
+            console.error(response.error);
+            setNotification(`Payment Failed: ${response.error.description}`);
+            setDbError(`Reason: ${response.error.reason}`);
+        });
+        
+        setNotification(null); // Clear "preparing" message
+        rzp.open();
+
+    } catch (error) {
+        console.error("Payment process failed:", error);
+        setNotification("Could not initiate payment. Please try again.");
+        setDbError(error instanceof Error ? error.message : "An unknown error occurred.");
     }
   };
 
@@ -991,7 +1070,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                                                 {isPro && <span className="text-xs font-bold bg-emerald-500 text-black px-2 py-0.5 rounded-full">Current Plan</span>}
                                             </div>
                                             <p className="text-zinc-400 mt-1">For power users & professionals.</p>
-                                            <p className="text-2xl font-bold text-white my-4">₹1199 <span className="text-base font-normal text-zinc-400">/mo</span></p>
+                                            <p className="text-2xl font-bold text-white my-4">₹799 <span className="text-base font-normal text-zinc-400">/mo</span></p>
                                             <ul className="space-y-3 text-zinc-300">
                                                 <PlanFeature available={true}>240 Requests/Month</PlanFeature>
                                                 <PlanFeature available={true}>All premium AI models</PlanFeature>

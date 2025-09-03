@@ -145,7 +145,7 @@ const Pricing: React.FC<PricingProps> = ({ onLogin }) => {
                                 <button onClick={() => setPlan('monthly')} className={`p-4 border rounded-xl text-left transition-all duration-200 ${plan === 'monthly' ? 'bg-green-500/10 border-green-400' : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-500'}`}>
                                     <div className="flex justify-between items-start">
                                         <div>
-                                            <p className="text-2xl font-bold text-white">₹1199<span className="text-base font-medium text-zinc-400">/Month</span></p>
+                                            <p className="text-2xl font-bold text-white">₹799<span className="text-base font-medium text-zinc-400">/Month</span></p>
                                             <p className="text-sm text-zinc-400 mt-1">Monthly</p>
                                         </div>
                                         {plan === 'monthly' ? <CircleCheckIcon /> : <CircleIcon />}
@@ -165,7 +165,7 @@ const Pricing: React.FC<PricingProps> = ({ onLogin }) => {
                             </div>
                             
                             <div className="text-center bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold text-sm py-3 px-4 rounded-lg mt-6 flex items-center justify-center gap-2">
-                                <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M5.25 3.25A2.25 2.25 0 003 5.5v1.854a.75.75 0 001.5 0V5.5a.75.75 0 01.75-.75h1.854a.75.75 0 010-1.5H5.25zM15.5 3.25a.75.75 0 01.75.75v1.854a.75.75 0 01-1.5 0V5.5a.75.75 0 00-.75-.75h-1.854a.75.75 0 010-1.5h1.854A2.25 2.25 0 0115.5 3.25zM3.25 15.5A2.25 2.25 0 005.5 17h1.854a.75.75 0 000-1.5H5.5a.75.75 0 01-.75-.75v-1.854a.75.75 0 00-1.5 0V15.5zM17 14.75a.75.75 0 01-.75.75h-1.854a.75.75 0 010-1.5h1.854a.75.75 0 00.75-.75v-1.854a.75.75 0 011.5 0v1.854A2.25 2.25 0 0117 14.75zM10 5a1 1 0 011 1v1.768l1.621-1.622a.75.75 0 111.06 1.06l-1.621 1.622H15a1 1 0 110 2h-1.768l1.622 1.621a.75.75 0 11-1.06 1.06L12 11.06V13a1 1 0 11-2 0v-1.94l-1.621 1.621a.75.75 0 11-1.06-1.06L8.94 10H7a1 1 0 110-2h1.94l-1.622-1.621a.75.75 0 011.06-1.06L10 8.94V6a1 1 0 011-1z"/></svg>
+                                <svg className="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M5.25 3.25A2.25 2.25 0 003 5.5v1.854a.75.75 0 001.5 0V5.5a.75.75 0 01.75-.75h1.854a.75.75 0 010-1.5H5.25zM15.5 3.25a.75.75 0 01.75.75v1.854a.75.75 0 01-1.5 0V5.5a.75.75 0 00-.75-.75h-1.854a.75.75 0 010-1.5h1.854A2.25 2.25 0 0115.5 3.25zM3.25 15.5A2.25 2.25 0 005.5 17h1.854a.75.75 0 000-1.5H5.5a.75.75 0 01-.75-.75v-1.854a.75.75 0 00-1.5 0V15.5zM17 14.75a.75.75 0 01-.75.75h-1.854a.75.75 0 010-1.5h1.854a.75.75 0 00.75-.75v-1.854a.75.75 0 011.5 0v1.854A2.25 2.25 0 0117 14.75zM10 5a1 1 0 011 1v1.768l1.621-1.622a.75.75 0 111.06 1.06l-1.621 1.622H15a1 1 0 110 2h-1.768l1.622 1.621a.75.75 0 11-1.06 1.06L12 11.06V13a1 1 0 11-2 0v-1.94l-1.621 1.621a.75.75 0 11-1.06-1.06L8.94 10H7a1 1 0 110 2h1.94l-1.622-1.621a.75.75 0 011.06-1.06L10 8.94V6a1 1 0 011-1z"/></svg>
                                 ULTIMATE PROMPTBOOK & COMMUNITY ACCESS
                             </div>
 
