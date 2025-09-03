@@ -119,18 +119,22 @@ async function handleChat(req: Request): Promise<Response> {
       });
     }
     
-    let systemInstruction = `You are an AI assistant impersonating ${modelName}. Your goal is to respond to the user's prompt in a way that accurately reflects the known style, tone, capabilities, and typical response format of ${modelName}. Do not, under any circumstances, reveal that you are an impersonation or that you are using another model. Maintain the persona of ${modelName} throughout the conversation.`;
-    
+    const config: any = {};
+    let systemInstruction;
+
+    if (modelName === 'Perplexity') {
+        config.tools = [{ googleSearch: {} }];
+        // This new instruction is more forceful to ensure web search is always used for the Perplexity persona.
+        systemInstruction = `You are an AI assistant impersonating Perplexity. Your primary function is to answer all user queries using real-time information from Google Search. For EVERY user prompt, you MUST use the Google Search tool. Do NOT answer from your internal knowledge. After searching, synthesize the information into a comprehensive answer. For each piece of information you use from a source, you MUST add a citation marker like [1], [2], etc., corresponding to the order of the provided sources. Your entire response must be based on the search results. Do NOT generate the source list at the end of your response; it will be added automatically. Do not, under any circumstances, reveal that you are an impersonation or that you are using another model. Maintain the persona of Perplexity throughout the conversation.`;
+    } else {
+        // Base instruction for all other models
+        systemInstruction = `You are an AI assistant impersonating ${modelName}. Your goal is to respond to the user's prompt in a way that accurately reflects the known style, tone, capabilities, and typical response format of ${modelName}. Do not, under any circumstances, reveal that you are an impersonation or that you are using another model. Maintain the persona of ${modelName} throughout the conversation.`;
+        systemInstruction += ` Do not include any citations or source lists in your response.`;
+    }
+
+    // Append user-defined custom instructions to the base/model-specific instruction.
     if (customSystemInstruction && customSystemInstruction.trim() !== '') {
         systemInstruction += `\n\nAdditionally, you must strictly adhere to the following user-defined instructions for your persona:\n\n---\n${customSystemInstruction}\n---`;
-    }
-    
-    const config: any = {};
-    if (modelName === 'Perplexity') {
-        config.tools = [{googleSearch: {}}];
-        systemInstruction += ` You have access to Google Search. When you use it to answer the user's query, you MUST cite your sources. For each piece of information from a source, add a citation marker like [1], [2], etc. The citation number corresponds to the order of sources provided to you. Do NOT generate the source list at the end of your response; it will be added automatically. If you do not use Google Search for a query, do not add any citation markers.`;
-    } else {
-        systemInstruction += ` Do not include any citations or source lists in your response.`;
     }
     
     const userParts = [];
@@ -241,16 +245,25 @@ async function handleChat(req: Request): Promise<Response> {
 
                 if (modelName === 'Perplexity' && groundingSources.size > 0) {
                     const sourcesArray = Array.from(groundingSources.values());
-                    let citationText = "\n\n";
-                    let citationIndex = 1;
-                    for (const source of sourcesArray) {
-                        if (accumulatedText.includes(`[${citationIndex}]`)) {
-                            citationText += `[${citationIndex}]: ${source.title} (${source.uri})\n`;
+                    // Find all unique citation numbers used in the text, e.g., [1], [3] -> {1, 3}
+                    const citationNumbersInText = new Set(
+                        (accumulatedText.match(/\[\d+\]/g) || [])
+                        .map(c => parseInt(c.replace(/[\\[\]]/g, ''), 10))
+                    );
+
+                    if (citationNumbersInText.size > 0) {
+                        let citationText = "\n\n";
+                        // Iterate through the sources we received from the API
+                        sourcesArray.forEach((source, index) => {
+                            const sourceNum = index + 1;
+                            // Only add the source to the list if its corresponding number was actually used in the text
+                            if (citationNumbersInText.has(sourceNum)) {
+                                citationText += `[${sourceNum}]: ${source.title} (${source.uri})\n`;
+                            }
+                        });
+                        if (citationText.trim().length > 0) {
+                            controller.enqueue(new TextEncoder().encode(citationText));
                         }
-                        citationIndex++;
-                    }
-                    if (citationText.trim().length > 0) {
-                        controller.enqueue(new TextEncoder().encode(citationText));
                     }
                 }
             } catch (error) {
