@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from "npm:@google/genai";
 import { serve } from "https://deno.land/std@0.182.0/http/server.ts";
 
