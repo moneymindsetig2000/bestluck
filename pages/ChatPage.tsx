@@ -631,7 +631,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
             const chunk = decoder.decode(value, { stream: true });
             accumulatedAnswer += chunk;
             
-            // Live update the answer as chunks arrive
+            // Live update the answer as chunks arrive, but don't parse sources yet.
             setResponses(prev => {
               const modelHistory = [...(prev[model.name] || [])];
               if (modelHistory.length === 0) return prev;
@@ -641,26 +641,24 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
             });
           }
     
-          // After stream is complete, do final processing for citations
+          // After stream is complete, do final processing for citations using the robust delimiter method.
           let finalAnswer = accumulatedAnswer;
           let finalSources: Source[] | undefined = undefined;
     
-          if (model.name === 'Perplexity') {
-              const sourceRegex = /\[(\d+)\]:\s*(.*?)\s*\((https?:\/\/[^\s)]+)\)/g;
-              const matches = [...accumulatedAnswer.matchAll(sourceRegex)];
-              
-              if (matches.length > 0) {
-                  const sourcesFound: Source[] = [];
-                  finalAnswer = accumulatedAnswer.replace(sourceRegex, '').trim();
-                  
-                  for (const match of matches) {
-                      sourcesFound.push({ title: match[2].trim(), url: match[3].trim() });
-                  }
-                  finalSources = sourcesFound;
+          const sourceDelimiter = "\n\n--SOURCES--\n";
+          if (model.name === 'Perplexity' && accumulatedAnswer.includes(sourceDelimiter)) {
+              const parts = accumulatedAnswer.split(sourceDelimiter);
+              finalAnswer = parts[0].trim(); // The text part
+              try {
+                  finalSources = JSON.parse(parts[1]); // The JSON source part
+              } catch (e) {
+                  console.error("Failed to parse sources JSON from stream:", e);
+                  // If parsing fails, keep the full text so the user can see the raw data.
+                  finalAnswer = accumulatedAnswer; 
               }
           }
     
-          // Perform a final state update with parsed sources and cleaned answer
+          // Perform a final state update with the cleanly separated answer and sources.
           setResponses(prev => {
             const modelHistory = [...(prev[model.name] || [])];
             if (modelHistory.length === 0) return prev;

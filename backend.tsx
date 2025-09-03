@@ -124,8 +124,14 @@ async function handleChat(req: Request): Promise<Response> {
 
     if (modelName === 'Perplexity') {
         config.tools = [{ googleSearch: {} }];
-        // This new instruction is more forceful to ensure web search is always used for the Perplexity persona.
-        systemInstruction = `You are an AI assistant impersonating Perplexity. Your primary function is to answer all user queries using real-time information from Google Search. For EVERY user prompt, you MUST use the Google Search tool. Do NOT answer from your internal knowledge. After searching, synthesize the information into a comprehensive answer. For each piece of information you use from a source, you MUST add a citation marker like [1], [2], etc., corresponding to the order of the provided sources. Your entire response must be based on the search results. Do NOT generate the source list at the end of your response; it will be added automatically. Do not, under any circumstances, reveal that you are an impersonation or that you are using another model. Maintain the persona of Perplexity throughout the conversation.`;
+        // A more structured and explicit instruction to ensure citation markers are generated.
+        systemInstruction = `You are an AI assistant that functions exactly like Perplexity. Your sole purpose is to answer user queries using real-time information from Google Search.
+Follow these non-negotiable rules for every response:
+1.  **MANDATORY ACTION: Use the Google Search tool for every query.** You are forbidden from answering from your internal knowledge base.
+2.  Synthesize the search results into a clear, well-structured answer.
+3.  **MANDATORY ACTION: Cite your sources inline.** For every piece of information or fact you state, you MUST immediately follow it with a citation marker like [1], [2], etc. These markers must correspond to the sources provided by the search tool. Failure to include these markers makes the response incorrect.
+4.  **Example of correct output:** "The sky appears blue due to a phenomenon called Rayleigh scattering [1]. This effect is more pronounced for shorter wavelengths of light [2]."
+5.  **NEVER reveal** you are an impersonation or a different AI model. You are Perplexity.`;
     } else {
         // Base instruction for all other models
         systemInstruction = `You are an AI assistant impersonating ${modelName}. Your goal is to respond to the user's prompt in a way that accurately reflects the known style, tone, capabilities, and typical response format of ${modelName}. Do not, under any circumstances, reveal that you are an impersonation or that you are using another model. Maintain the persona of ${modelName} throughout the conversation.`;
@@ -221,13 +227,13 @@ async function handleChat(req: Request): Promise<Response> {
     
     const responseStream = new ReadableStream({
         async start(controller) {
-            let accumulatedText = "";
-            const groundingSources = new Map<string, { title: string; uri: string }>();
+            // FIX: The map value type was changed from {uri: string} to {url: string}
+            // to match the property being set and the data structure expected by the frontend.
+            const groundingSources = new Map<string, { title: string; url: string }>();
             try {
                 for await (const chunk of stream) {
                     const text = chunk.text;
                     if (text) {
-                        if (modelName === 'Perplexity') accumulatedText += text;
                         controller.enqueue(new TextEncoder().encode(text));
                     }
 
@@ -236,7 +242,7 @@ async function handleChat(req: Request): Promise<Response> {
                         if (groundingChunks) {
                             for (const gchunk of groundingChunks) {
                                 if (gchunk.web && gchunk.web.uri && gchunk.web.title) {
-                                    groundingSources.set(gchunk.web.uri, gchunk.web);
+                                    groundingSources.set(gchunk.web.uri, { title: gchunk.web.title, url: gchunk.web.uri });
                                 }
                             }
                         }
@@ -245,27 +251,12 @@ async function handleChat(req: Request): Promise<Response> {
 
                 if (modelName === 'Perplexity' && groundingSources.size > 0) {
                     const sourcesArray = Array.from(groundingSources.values());
-                    // Find all unique citation numbers used in the text, e.g., [1], [3] -> {1, 3}
-                    const citationNumbersInText = new Set(
-                        (accumulatedText.match(/\[\d+\]/g) || [])
-                        .map(c => parseInt(c.replace(/[\\[\]]/g, ''), 10))
-                    );
-
-                    if (citationNumbersInText.size > 0) {
-                        let citationText = "\n\n";
-                        // Iterate through the sources we received from the API
-                        sourcesArray.forEach((source, index) => {
-                            const sourceNum = index + 1;
-                            // Only add the source to the list if its corresponding number was actually used in the text
-                            if (citationNumbersInText.has(sourceNum)) {
-                                citationText += `[${sourceNum}]: ${source.title} (${source.uri})\n`;
-                            }
-                        });
-                        if (citationText.trim().length > 0) {
-                            controller.enqueue(new TextEncoder().encode(citationText));
-                        }
-                    }
+                    const sourcesJson = JSON.stringify(sourcesArray);
+                    // Use a unique delimiter to send the source data as a separate chunk
+                    const finalChunk = `\n\n--SOURCES--\n${sourcesJson}`;
+                    controller.enqueue(new TextEncoder().encode(finalChunk));
                 }
+
             } catch (error) {
                 console.error("Error during Gemini stream processing:", error);
                 controller.error(error);
