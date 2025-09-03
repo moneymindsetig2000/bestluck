@@ -623,7 +623,6 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
           let accumulatedAnswer = '';
-          const sourceDelimiter = "\n\n--SOURCES--\n";
     
           while (true) {
             const { value, done } = await reader.read();
@@ -632,52 +631,15 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
             const chunk = decoder.decode(value, { stream: true });
             accumulatedAnswer += chunk;
             
-            // To prevent rendering raw JSON during the stream, only show the text part.
-            const textPart = accumulatedAnswer.split(sourceDelimiter)[0];
-            
             setResponses(prev => {
               const modelHistory = [...(prev[model.name] || [])];
               if (modelHistory.length === 0) return prev;
               const lastResponseIndex = modelHistory.length - 1;
-              modelHistory[lastResponseIndex] = { ...modelHistory[lastResponseIndex], answer: textPart };
+              modelHistory[lastResponseIndex] = { ...modelHistory[lastResponseIndex], answer: accumulatedAnswer };
               return { ...prev, [model.name]: modelHistory };
             });
           }
-    
-          // After stream is complete, do final processing for citations.
-          let finalAnswer = accumulatedAnswer.split(sourceDelimiter)[0].trim();
-          let finalSources: Source[] | undefined = undefined;
-    
-          if (model.name === 'Perplexity' && accumulatedAnswer.includes(sourceDelimiter)) {
-              const parts = accumulatedAnswer.split(sourceDelimiter);
-              finalAnswer = parts[0].trim(); 
-              try {
-                  if (parts[1] && parts[1].trim()) {
-                     finalSources = JSON.parse(parts[1]);
-                  }
-              } catch (e) {
-                  console.error("Failed to parse sources JSON from stream:", e);
-                  // If parsing fails, revert to showing the full text so data isn't lost.
-                  finalAnswer = accumulatedAnswer; 
-                  finalSources = undefined;
-              }
-          }
-    
-          // Perform the final state update with the cleanly separated answer and sources.
-          setResponses(prev => {
-            const modelHistory = [...(prev[model.name] || [])];
-            if (modelHistory.length === 0) return prev;
-            const lastResponseIndex = modelHistory.length - 1;
-            const currentExchange = modelHistory[lastResponseIndex];
-            // Ensure we don't lose prompt/image data when updating
-            modelHistory[lastResponseIndex] = { 
-                ...currentExchange,
-                answer: finalAnswer, 
-                sources: finalSources 
-            };
-            return { ...prev, [model.name]: modelHistory };
-          });
-    
+
           resolve();
 
         } catch (error: any) {
@@ -913,14 +875,10 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
                               {model.icon}
                             </div>
                             <div className="flex-1 min-w-0 text-zinc-200 whitespace-pre-wrap font-sans leading-relaxed break-words">
-                              {model.name === 'Perplexity' ? (
-                                <ResponseWithCitations 
-                                  text={exchange.answer}
-                                  sources={exchange.sources}
-                                />
-                              ) : (
-                                renderWithMarkdown(exchange.answer)
-                              )}
+                              <ResponseWithCitations 
+                                text={exchange.answer}
+                                sources={exchange.sources}
+                              />
                               {loadingStates[model.name] && index === responses[model.name].length - 1 && <span className="inline-block w-2 h-4 bg-white ml-1 animate-pulse" />}
                             </div>
                           </div>

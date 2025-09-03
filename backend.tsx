@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "npm:@google/genai";
 import { serve } from "https://deno.land/std@0.182.0/http/server.ts";
 
@@ -127,9 +128,14 @@ async function handleChat(req: Request): Promise<Response> {
 Follow these non-negotiable rules for every response:
 1.  **MANDATORY ACTION: Use the Google Search tool for every query.** You are forbidden from answering from your internal knowledge base.
 2.  Synthesize the search results into a clear, well-structured answer.
-3.  **MANDATORY ACTION: Cite your sources inline.** For every piece of information or fact you state, you MUST immediately follow it with the full URL of the source enclosed in square brackets, like [https://example.com/source].
-4.  **Example of correct output:** "The sky appears blue due to a phenomenon called Rayleigh scattering [https://en.wikipedia.org/wiki/Rayleigh_scattering]. This effect is more pronounced for shorter wavelengths of light [https://physics.stackexchange.com/questions/109/why-is-the-sky-blue]."
-5.  You MUST ONLY use the source URLs provided to you by the Google Search tool. Do not make up URLs.
+3.  **MANDATORY ACTION: After providing the complete answer, you MUST list all the source URLs you used.** This list must be at the very end of your response, under a clear heading like "Sources:".
+4.  **Example of correct output format:**
+The sky appears blue due to a phenomenon called Rayleigh scattering... (rest of the answer).
+
+Sources:
+https://en.wikipedia.org/wiki/Rayleigh_scattering
+https://physics.stackexchange.com/questions/109/why-is-the-sky-blue
+5.  You MUST ONLY use the source URLs provided to you by the Google Search tool. Do not make up URLs. Do not add any commentary to the source list. Just list the URLs.
 6.  **NEVER reveal** you are an impersonation or a different AI model. You are Perplexity.`;
     } else {
         // Base instruction for all other models
@@ -226,36 +232,13 @@ Follow these non-negotiable rules for every response:
     
     const responseStream = new ReadableStream({
         async start(controller) {
-            // FIX: The map value type was changed from {uri: string} to {url: string}
-            // to match the property being set and the data structure expected by the frontend.
-            const groundingSources = new Map<string, { title: string; url: string }>();
             try {
                 for await (const chunk of stream) {
                     const text = chunk.text;
                     if (text) {
                         controller.enqueue(new TextEncoder().encode(text));
                     }
-
-                    if (modelName === 'Perplexity') {
-                        const groundingChunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks;
-                        if (groundingChunks) {
-                            for (const gchunk of groundingChunks) {
-                                if (gchunk.web && gchunk.web.uri && gchunk.web.title) {
-                                    groundingSources.set(gchunk.web.uri, { title: gchunk.web.title, url: gchunk.web.uri });
-                                }
-                            }
-                        }
-                    }
                 }
-
-                if (modelName === 'Perplexity' && groundingSources.size > 0) {
-                    const sourcesArray = Array.from(groundingSources.values());
-                    const sourcesJson = JSON.stringify(sourcesArray);
-                    // Use a unique delimiter to send the source data as a separate chunk
-                    const finalChunk = `\n\n--SOURCES--\n${sourcesJson}`;
-                    controller.enqueue(new TextEncoder().encode(finalChunk));
-                }
-
             } catch (error) {
                 console.error("Error during Gemini stream processing:", error);
                 controller.error(error);
