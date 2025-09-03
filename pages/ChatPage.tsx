@@ -13,10 +13,9 @@ import { User } from '../../App';
 // Your URL will look something like: https://your-project-name.deno.dev
 const BACKEND_URL = "https://backendforai.deno.dev"; 
 
-// IMPORTANT: Replace this placeholder with your Deno Deploy URL for payments.
-// This should point to where you've deployed the 'backendforpayment.tsx' file.
-const BACKEND_PAYMENT_URL = "https://backendforpayment.deno.dev";
-
+// IMPORTANT: Replace this placeholder with your new "Standard Payment Link" URL from the Razorpay dashboard.
+// The code will automatically add the necessary user ID to this link.
+const RAZORPAY_PAYMENT_LINK_URL = "https://rzp.io/rzp/A2WOTpx";
 
 declare global {
   interface Window {
@@ -168,6 +167,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
   const prevLoadingStatesRef = useRef<Record<string, boolean>>({});
   const chatPaneRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const abortControllerRef = useRef<AbortController | null>(null);
+  const pollingIntervalRef = useRef<number | null>(null);
   
   const saveChat = useCallback(async (chatId: string) => {
     if (!chatId) return;
@@ -361,6 +361,15 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
     });
   }, [responses]);
 
+  // Cleanup polling interval on component unmount
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
+
   const handleToggleExpand = (modelName: string) => {
     setExpandedModel(prev => (prev === modelName ? null : modelName));
   };
@@ -468,106 +477,69 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
     setActiveSettingTab('subscription');
   };
   
-  const finalizeProSubscription = async () => {
-    const startDate = Date.now();
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + 30);
-      
-    const newSub: Subscription = {
-        plan: 'pro',
-        requestsUsed: 0,
-        requestsLimit: 240, // Pro plan limit
-        periodStartDate: startDate,
-        periodEndDate: endDate.getTime(),
-    };
-
-    try {
-      const currentPuterUser = await window.puter.auth.getUser();
-      if (!currentPuterUser) throw new Error("User not authenticated");
-      
-      const settingsDir = getSettingsDirForUser(currentPuterUser);
-      const subPath = `${settingsDir}/subscription.json`;
-
-      await safePuterFs.write(subPath, JSON.stringify(newSub));
-      setSubscription(newSub);
-      setNotification('Successfully upgraded to Pro plan!');
-    } catch (error) {
-      console.error("Failed to upgrade subscription:", error);
-      setDbError("An error occurred while upgrading. Please try again.");
+  const stopPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
     }
   };
 
+  const startPollingForSubscriptionUpdate = () => {
+    stopPolling(); // Ensure no multiple pollers are running
+
+    const checkStatus = async () => {
+        try {
+            const currentPuterUser = await window.puter.auth.getUser();
+            if (!currentPuterUser) throw new Error("User not authenticated for polling");
+
+            const settingsDir = getSettingsDirForUser(currentPuterUser);
+            const subPath = `${settingsDir}/subscription.json`;
+            const blob = await safePuterFs.read(subPath);
+            const content = await blob.text();
+            const currentSub = JSON.parse(content) as Subscription;
+            
+            if (currentSub.plan === 'pro') {
+                setSubscription(currentSub);
+                setNotification('Upgrade successful! Welcome to the Pro plan.');
+                stopPolling();
+            }
+        } catch (error) {
+            console.warn("Polling check failed, will retry:", error);
+        }
+    };
+    
+    pollingIntervalRef.current = window.setInterval(checkStatus, 5000); // Check every 5 seconds
+
+    // Set a timeout to stop polling after 5 minutes to prevent infinite loops
+    setTimeout(() => {
+        if (pollingIntervalRef.current) {
+            stopPolling();
+            setNotification("Payment confirmation timed out. If you have completed the payment, please refresh the page.");
+        }
+    }, 300000); // 5 minutes
+  };
+  
   const handleUpgrade = async () => {
-    if (BACKEND_PAYMENT_URL.includes("backendforpayment.deno.dev")) {
-        alert("Please edit `pages/ChatPage.tsx` and set the `BACKEND_PAYMENT_URL` constant to your Deno Deploy URL for payments.");
+    if (RAZORPAY_PAYMENT_LINK_URL.includes("YOUR_NEW_LINK_HERE")) {
+        alert("The application developer needs to configure a new Razorpay Payment Link. See the comment in `pages/ChatPage.tsx`.");
         return;
     }
 
-    try {
-        setNotification("Preparing your secure payment...");
-        // 1. Create Order
-        const orderResponse = await fetch(`${BACKEND_PAYMENT_URL}/create-order`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({}),
-        });
-
-        if (!orderResponse.ok) throw new Error("Failed to create payment order.");
-        const order = await orderResponse.json();
-        
-        // 2. Open Razorpay Checkout
-        const options = {
-            key: process.env.RAZORPAY_KEY_ID,
-            amount: order.amount,
-            currency: order.currency,
-            name: "AI Clavis Pro",
-            description: "Monthly Subscription",
-            order_id: order.id,
-            handler: async (response: any) => {
-                setNotification("Verifying payment...");
-                // 3. Verify Payment
-                const verificationResponse = await fetch(`${BACKEND_PAYMENT_URL}/verify-payment`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        razorpay_payment_id: response.razorpay_payment_id,
-                        razorpay_order_id: response.razorpay_order_id,
-                        razorpay_signature: response.razorpay_signature
-                    }),
-                });
-
-                const result = await verificationResponse.json();
-                
-                if (result.verified) {
-                    // 4. Finalize Subscription on successful verification
-                    await finalizeProSubscription();
-                } else {
-                    setNotification("Payment verification failed. Please contact support.");
-                    setDbError("Payment verification failed.");
-                }
-            },
-            prefill: {
-                name: user.displayName || "Valued User",
-            },
-            theme: {
-                color: "#10b981"
-            }
-        };
-        const rzp = new window.Razorpay(options);
-        rzp.on('payment.failed', function (response: any){
-            console.error(response.error);
-            setNotification(`Payment Failed: ${response.error.description}`);
-            setDbError(`Reason: ${response.error.reason}`);
-        });
-        
-        setNotification(null); // Clear "preparing" message
-        rzp.open();
-
-    } catch (error) {
-        console.error("Payment process failed:", error);
-        setNotification("Could not initiate payment. Please try again.");
-        setDbError(error instanceof Error ? error.message : "An unknown error occurred.");
+    if (!user?.uid) {
+        setDbError("Could not process upgrade: User ID is missing.");
+        return;
     }
+    
+    // Construct the unique URL for this user using the correct 'notes' parameter for Razorpay
+    const paymentUrl = `${RAZORPAY_PAYMENT_LINK_URL}?notes[user_id]=${user.uid}`;
+    
+    // Open the payment link in a new tab
+    window.open(paymentUrl, '_blank', 'noopener,noreferrer');
+    setShowHelpModal(false); // Close settings modal if open
+
+    // Inform the user and start polling for the backend update
+    setNotification("Opening secure payment page... Please complete your payment in the new tab. We'll upgrade your plan upon confirmation.");
+    startPollingForSubscriptionUpdate();
   };
 
   const handleClaimCoupon = () => {

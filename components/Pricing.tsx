@@ -202,7 +202,7 @@ const Pricing: React.FC<PricingProps> = ({ onLogin }) => {
                               <svg className="relative z-10 w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                             </button>
                             <p className="text-center text-xs text-zinc-500 mt-4">
-                                🔒 Payments are processed by TagMango using Razorpay & Stripe
+                                🔒 Secure payments processed by Razorpay
                             </p>
                          </div>
                     </FadeInSection>
