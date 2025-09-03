@@ -623,6 +623,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
           const reader = response.body.getReader();
           const decoder = new TextDecoder();
           let accumulatedAnswer = '';
+          const sourceDelimiter = "\n\n--SOURCES--\n";
     
           while (true) {
             const { value, done } = await reader.read();
@@ -631,39 +632,49 @@ const ChatPage: React.FC<ChatPageProps> = ({ user, subscription, setSubscription
             const chunk = decoder.decode(value, { stream: true });
             accumulatedAnswer += chunk;
             
-            // Live update the answer as chunks arrive, but don't parse sources yet.
+            // To prevent rendering raw JSON during the stream, only show the text part.
+            const textPart = accumulatedAnswer.split(sourceDelimiter)[0];
+            
             setResponses(prev => {
               const modelHistory = [...(prev[model.name] || [])];
               if (modelHistory.length === 0) return prev;
               const lastResponseIndex = modelHistory.length - 1;
-              modelHistory[lastResponseIndex] = { ...modelHistory[lastResponseIndex], answer: accumulatedAnswer };
+              modelHistory[lastResponseIndex] = { ...modelHistory[lastResponseIndex], answer: textPart };
               return { ...prev, [model.name]: modelHistory };
             });
           }
     
-          // After stream is complete, do final processing for citations using the robust delimiter method.
-          let finalAnswer = accumulatedAnswer;
+          // After stream is complete, do final processing for citations.
+          let finalAnswer = accumulatedAnswer.split(sourceDelimiter)[0].trim();
           let finalSources: Source[] | undefined = undefined;
     
-          const sourceDelimiter = "\n\n--SOURCES--\n";
           if (model.name === 'Perplexity' && accumulatedAnswer.includes(sourceDelimiter)) {
               const parts = accumulatedAnswer.split(sourceDelimiter);
-              finalAnswer = parts[0].trim(); // The text part
+              finalAnswer = parts[0].trim(); 
               try {
-                  finalSources = JSON.parse(parts[1]); // The JSON source part
+                  if (parts[1] && parts[1].trim()) {
+                     finalSources = JSON.parse(parts[1]);
+                  }
               } catch (e) {
                   console.error("Failed to parse sources JSON from stream:", e);
-                  // If parsing fails, keep the full text so the user can see the raw data.
+                  // If parsing fails, revert to showing the full text so data isn't lost.
                   finalAnswer = accumulatedAnswer; 
+                  finalSources = undefined;
               }
           }
     
-          // Perform a final state update with the cleanly separated answer and sources.
+          // Perform the final state update with the cleanly separated answer and sources.
           setResponses(prev => {
             const modelHistory = [...(prev[model.name] || [])];
             if (modelHistory.length === 0) return prev;
             const lastResponseIndex = modelHistory.length - 1;
-            modelHistory[lastResponseIndex] = { ...modelHistory[lastResponseIndex], answer: finalAnswer, sources: finalSources };
+            const currentExchange = modelHistory[lastResponseIndex];
+            // Ensure we don't lose prompt/image data when updating
+            modelHistory[lastResponseIndex] = { 
+                ...currentExchange,
+                answer: finalAnswer, 
+                sources: finalSources 
+            };
             return { ...prev, [model.name]: modelHistory };
           });
     
